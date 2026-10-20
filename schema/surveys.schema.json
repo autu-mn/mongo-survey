@@ -1,0 +1,118 @@
+{
+  "bsonType": "object",
+  "title": "surveys",
+  "required": [
+    "ownerId", "slug", "title", "description",
+    "allowAnonymous", "allowMultipleSubmit", "status", "deadline",
+    "version", "questions", "createdAt", "updatedAt", "schemaVersion"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "ownerId": { "bsonType": "objectId", "description": "创建者 users._id" },
+    "slug": {
+      "bsonType": "string",
+      "pattern": "^[A-Za-z0-9_-]{6,32}$",
+      "description": "对外链接 /survey/{slug}，唯一索引保证不重复"
+    },
+    "title": { "bsonType": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "bsonType": "string", "maxLength": 5000 },
+    "allowAnonymous": { "bsonType": "bool" },
+    "allowMultipleSubmit": { "bsonType": "bool" },
+    "status": { "enum": ["draft", "published", "closed"] },
+    "deadline": { "bsonType": ["date", "null"] },
+    "publishedAt": { "bsonType": ["date", "null"] },
+    "closedAt": { "bsonType": ["date", "null"] },
+    "version": {
+      "bsonType": "int",
+      "minimum": 1,
+      "description": "题目结构每改一次 +1，答卷记录作答时的版本"
+    },
+    "questions": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "object",
+        "required": ["questionId", "order", "type", "title", "required", "options", "constraints", "logic"],
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "bsonType": "string",
+            "minLength": 1,
+            "description": "稳定 ID，跳转规则和答卷都引用它，不依赖题号"
+          },
+          "order": { "bsonType": "int", "minimum": 1 },
+          "type": { "enum": ["single", "multiple", "text", "number"] },
+          "title": { "bsonType": "string", "minLength": 1, "maxLength": 500 },
+          "description": { "bsonType": "string", "maxLength": 2000 },
+          "required": { "bsonType": "bool" },
+          "options": {
+            "bsonType": "array",
+            "description": "仅 single / multiple 使用，其余题型为空数组",
+            "items": {
+              "bsonType": "object",
+              "required": ["optionId", "text"],
+              "additionalProperties": false,
+              "properties": {
+                "optionId": { "bsonType": "string", "minLength": 1 },
+                "text": { "bsonType": "string", "minLength": 1, "maxLength": 200 }
+              }
+            }
+          },
+          "constraints": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "description": "按题型取用的约束，类型与字段的对应关系由应用层校验",
+            "properties": {
+              "minSelect": { "bsonType": "int", "minimum": 0 },
+              "maxSelect": { "bsonType": "int", "minimum": 1 },
+              "exactSelect": { "bsonType": "int", "minimum": 1 },
+              "minLength": { "bsonType": "int", "minimum": 0 },
+              "maxLength": { "bsonType": "int", "minimum": 1 },
+              "min": { "bsonType": ["int", "long", "double", "decimal"] },
+              "max": { "bsonType": ["int", "long", "double", "decimal"] },
+              "integerOnly": { "bsonType": "bool" }
+            }
+          },
+          "logic": {
+            "bsonType": "array",
+            "description": "跳转规则，按数组顺序匹配，命中第一条即跳转",
+            "items": {
+              "bsonType": "object",
+              "required": ["when", "goto"],
+              "additionalProperties": false,
+              "properties": {
+                "when": {
+                  "bsonType": "object",
+                  "required": ["op", "value"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "enum": [
+                        "eq", "ne", "in",
+                        "includes", "includesAny", "includesAll", "equalsSet",
+                        "gt", "gte", "lt", "lte", "between"
+                      ]
+                    },
+                    "value": { "description": "比较值：optionId、optionId 数组、数字或 [下限, 上限]" }
+                  }
+                },
+                "goto": {
+                  "bsonType": "string",
+                  "minLength": 1,
+                  "description": "目标 questionId，或 END 表示结束问卷"
+                }
+              }
+            }
+          },
+          "defaultGoto": {
+            "bsonType": ["string", "null"],
+            "description": "所有规则都不命中时的去向；为空则按 order 进入下一题"
+          }
+        }
+      }
+    },
+    "createdAt": { "bsonType": "date" },
+    "updatedAt": { "bsonType": "date" },
+    "schemaVersion": { "bsonType": "int", "minimum": 1 }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "bsonType": "object",
+  "title": "responses",
+  "required": [
+    "surveyId", "surveyVersion", "respondentId", "submitterKey",
+    "singleSubmission", "submittedAt", "answers", "path", "schemaVersion"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "surveyId": { "bsonType": "objectId" },
+    "surveyVersion": { "bsonType": "int", "minimum": 1, "description": "作答时问卷的 version" },
+    "respondentId": {
+      "bsonType": ["objectId", "null"],
+      "description": "实名问卷记录填写者 users._id；匿名问卷为 null"
+    },
+    "submitterKey": {
+      "bsonType": "string",
+      "minLength": 1,
+      "description": "实名时为用户 ID 字符串；匿名时为 HMAC(用户ID, 问卷ID)，可用于去重但无法反查身份"
+    },
+    "singleSubmission": {
+      "bsonType": "bool",
+      "description": "提交时问卷是否限制每人一次；为 true 时受唯一部分索引约束"
+    },
+    "submittedAt": { "bsonType": "date" },
+    "answers": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "object",
+        "required": ["questionId", "type", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "questionId": { "bsonType": "string", "minLength": 1 },
+          "type": { "enum": ["single", "multiple", "text", "number"] },
+          "value": {
+            "bsonType": ["string", "array", "int", "long", "double", "decimal"],
+            "description": "single: optionId；multiple: optionId 数组；text: 字符串；number: 数值"
+          }
+        }
+      }
+    },
+    "path": {
+      "bsonType": "array",
+      "items": { "bsonType": "string" },
+      "description": "按跳转规则实际经过的 questionId 序列"
+    },
+    "schemaVersion": { "bsonType": "int", "minimum": 1 }
+  }
+}

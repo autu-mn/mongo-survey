@@ -1,0 +1,22 @@
+{
+  "bsonType": "object",
+  "title": "users",
+  "required": ["username", "passwordHash", "createdAt", "schemaVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "username": {
+      "bsonType": "string",
+      "minLength": 3,
+      "maxLength": 32,
+      "description": "登录名，全局唯一（唯一索引保证）"
+    },
+    "passwordHash": {
+      "bsonType": "string",
+      "minLength": 20,
+      "description": "bcrypt 哈希，禁止存明文"
+    },
+    "createdAt": { "bsonType": "date", "description": "注册时间" },
+    "schemaVersion": { "bsonType": "int", "minimum": 1 }
+  }
+}
