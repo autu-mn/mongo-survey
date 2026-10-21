@@ -19,7 +19,10 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
     "surveys": [
         IndexModel([("slug", ASCENDING)], unique=True, name="uniq_slug"),
-        IndexModel([("ownerId", ASCENDING), ("createdAt", DESCENDING)], name="owner_list"),
+        IndexModel(
+            [("ownerId", ASCENDING), ("deletedAt", ASCENDING), ("createdAt", DESCENDING)],
+            name="owner_active_list",
+        ),
     ],
     "responses": [
         IndexModel([("surveyId", ASCENDING), ("submittedAt", DESCENDING)], name="survey_responses"),
@@ -49,7 +52,10 @@ def get_db() -> Database:
 
 
 def init_db(db: Database) -> None:
-    """建集合、注册 $jsonSchema 校验器、建索引；可重复执行。"""
+    """建集合、注册 $jsonSchema 校验器、同步索引；可重复执行。
+
+    INDEXES 是索引的唯一来源：未声明的旧索引会被删除。
+    """
     existing = set(db.list_collection_names())
     for name in COLLECTIONS:
         validator = {"$jsonSchema": load_schema(name)}
@@ -59,6 +65,10 @@ def init_db(db: Database) -> None:
         else:
             db.create_collection(name, validator=validator,
                                  validationLevel="strict", validationAction="error")
+        declared = {ix.document["name"] for ix in INDEXES[name]}
+        for ix in db[name].list_indexes():
+            if ix["name"] != "_id_" and ix["name"] not in declared:
+                db[name].drop_index(ix["name"])
         db[name].create_indexes(INDEXES[name])
 
 

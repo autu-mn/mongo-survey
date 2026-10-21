@@ -12,12 +12,12 @@
     "surveyVersion": { "bsonType": "int", "minimum": 1, "description": "作答时问卷的 version" },
     "respondentId": {
       "bsonType": ["objectId", "null"],
-      "description": "实名问卷记录填写者 users._id；匿名问卷为 null"
+      "description": "登录且实名时为 users._id；匿名问卷或未登录填写为 null"
     },
     "submitterKey": {
       "bsonType": "string",
       "minLength": 1,
-      "description": "实名时为用户 ID 字符串；匿名时为 HMAC(用户ID, 问卷ID)，可用于去重但无法反查身份"
+      "description": "实名：u:用户ID；登录但匿名：a:HMAC(用户ID, 问卷ID)；未登录：g:随机UUID"
     },
     "singleSubmission": {
       "bsonType": "bool",

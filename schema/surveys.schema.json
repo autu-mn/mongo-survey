@@ -2,9 +2,9 @@
   "bsonType": "object",
   "title": "surveys",
   "required": [
-    "ownerId", "slug", "title", "description",
-    "allowAnonymous", "allowMultipleSubmit", "status", "deadline",
-    "version", "questions", "createdAt", "updatedAt", "schemaVersion"
+    "ownerId", "slug", "title", "description", "status", "settings",
+    "version", "responseCount", "questions",
+    "createdAt", "updatedAt", "deletedAt", "schemaVersion"
   ],
   "additionalProperties": false,
   "properties": {
@@ -17,22 +17,53 @@
     },
     "title": { "bsonType": "string", "minLength": 1, "maxLength": 200 },
     "description": { "bsonType": "string", "maxLength": 5000 },
-    "allowAnonymous": { "bsonType": "bool" },
-    "allowMultipleSubmit": { "bsonType": "bool" },
-    "status": { "enum": ["draft", "published", "closed"] },
-    "deadline": { "bsonType": ["date", "null"] },
+    "status": {
+      "enum": ["draft", "published", "closed"],
+      "description": "生命周期状态；已截止、已达上限不存储，由 deadline / maxResponses 实时判断"
+    },
+    "settings": {
+      "bsonType": "object",
+      "description": "发布 / 分享设置页编辑的全部内容",
+      "required": ["requireLogin", "allowAnonymous", "allowMultipleSubmit", "deadline", "maxResponses", "completion"],
+      "additionalProperties": false,
+      "properties": {
+        "requireLogin": { "bsonType": "bool", "description": "填写前是否必须登录，第一阶段默认 true" },
+        "allowAnonymous": { "bsonType": "bool", "description": "true 时答卷不保存填写者身份" },
+        "allowMultipleSubmit": { "bsonType": "bool" },
+        "deadline": { "bsonType": ["date", "null"] },
+        "maxResponses": { "bsonType": ["int", "null"], "minimum": 1, "description": "答卷数上限，null 表示不限" },
+        "completion": {
+          "bsonType": "object",
+          "required": ["message", "redirectUrl"],
+          "additionalProperties": false,
+          "properties": {
+            "message": { "bsonType": "string", "maxLength": 1000, "description": "提交成功页显示的文字" },
+            "redirectUrl": {
+              "bsonType": ["string", "null"],
+              "pattern": "^https?://",
+              "description": "结束页跳转的外部链接，只允许 http / https"
+            }
+          }
+        }
+      }
+    },
     "publishedAt": { "bsonType": ["date", "null"] },
     "closedAt": { "bsonType": ["date", "null"] },
     "version": {
       "bsonType": "int",
       "minimum": 1,
-      "description": "题目结构每改一次 +1，答卷记录作答时的版本"
+      "description": "题目结构每变更一次 +1，答卷记录作答时的版本"
+    },
+    "responseCount": {
+      "bsonType": "int",
+      "minimum": 0,
+      "description": "冗余计数器：列表页展示与 maxResponses 并发控制用；统计页以 responses 实际数量为准"
     },
     "questions": {
       "bsonType": "array",
       "items": {
         "bsonType": "object",
-        "required": ["questionId", "order", "type", "title", "required", "options", "constraints", "logic"],
+        "required": ["questionId", "order", "type", "title", "required", "hidden", "options", "constraints", "logic"],
         "additionalProperties": false,
         "properties": {
           "questionId": {
@@ -45,16 +76,21 @@
           "title": { "bsonType": "string", "minLength": 1, "maxLength": 500 },
           "description": { "bsonType": "string", "maxLength": 2000 },
           "required": { "bsonType": "bool" },
+          "hidden": {
+            "bsonType": "bool",
+            "description": "已有答卷后删除题目改为隐藏：填写页不再显示，统计页仍保留历史数据"
+          },
           "options": {
             "bsonType": "array",
             "description": "仅 single / multiple 使用，其余题型为空数组",
             "items": {
               "bsonType": "object",
-              "required": ["optionId", "text"],
+              "required": ["optionId", "text", "hidden"],
               "additionalProperties": false,
               "properties": {
                 "optionId": { "bsonType": "string", "minLength": 1 },
-                "text": { "bsonType": "string", "minLength": 1, "maxLength": 200 }
+                "text": { "bsonType": "string", "minLength": 1, "maxLength": 200 },
+                "hidden": { "bsonType": "bool" }
               }
             }
           },
@@ -106,13 +142,17 @@
           },
           "defaultGoto": {
             "bsonType": ["string", "null"],
-            "description": "所有规则都不命中时的去向；为空则按 order 进入下一题"
+            "description": "所有规则都不命中时的去向；为空则按 order 进入下一道未隐藏的题"
           }
         }
       }
     },
     "createdAt": { "bsonType": "date" },
     "updatedAt": { "bsonType": "date" },
+    "deletedAt": {
+      "bsonType": ["date", "null"],
+      "description": "软删除时间；非 null 时链接返回 404、列表不显示，答卷保留"
+    },
     "schemaVersion": { "bsonType": "int", "minimum": 1 }
   }
 }
