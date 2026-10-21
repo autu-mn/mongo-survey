@@ -25,3 +25,8 @@ def find_by_username(db: Database, username: str) -> dict | None:
 
 def find_by_id(db: Database, user_id: ObjectId) -> dict | None:
     return db.users.find_one({"_id": user_id}, {"passwordHash": 0})
+
+
+def usernames(db: Database, user_ids: list[ObjectId]) -> dict[ObjectId, str]:
+    """P18 导出时批量查询填写者用户名（一次 $in 查询一批）。"""
+    return {u["_id"]: u["username"] for u in db.users.find({"_id": {"$in": user_ids}}, {"username": 1})}

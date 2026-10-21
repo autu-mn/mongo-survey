@@ -125,6 +125,11 @@ def save_editor_changes(db: Database, survey_id: ObjectId, owner_id: ObjectId,
                         extra_filter={"updatedAt": expected_updated_at})
 
 
+def find_active(db: Database, survey_id: ObjectId) -> dict | None:
+    """按 ID 读取未删除的问卷（不限创作者），用于填写者查看自己的答卷。"""
+    return db.surveys.find_one({"_id": survey_id, "deletedAt": None})
+
+
 def find_by_slug(db: Database, slug: str) -> dict | None:
     """P12 / P14 填写者通过链接打开问卷，走 uniq_slug 索引。"""
     return db.surveys.find_one({"slug": slug})

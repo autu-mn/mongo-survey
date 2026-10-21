@@ -8,6 +8,7 @@ from app.errors import AppError
 from app.models.me import InProgressItem, MyAnswerItem, MyOption, MyResponse, Participations, SubmittedItem
 from app.repositories import drafts as drafts_repo
 from app.repositories import responses as responses_repo
+from app.repositories import surveys as surveys_repo
 from app.services.survey_service import display_status, now_utc
 
 
@@ -39,7 +40,7 @@ def my_response(db: Database, user_id: ObjectId, raw_id: str) -> MyResponse:
     except (InvalidId, TypeError):
         raise not_found
     resp = responses_repo.find_mine(db, response_id, user_id)
-    survey = db.surveys.find_one({"_id": resp["surveyId"], "deletedAt": None}) if resp else None
+    survey = surveys_repo.find_active(db, resp["surveyId"]) if resp else None
     if resp is None or survey is None:
         raise not_found
 

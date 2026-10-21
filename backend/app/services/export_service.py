@@ -9,6 +9,7 @@ from bson import ObjectId
 from pymongo.database import Database
 
 from app.repositories import responses as responses_repo
+from app.repositories import users as users_repo
 from app.services.survey_service import get_owned
 
 DISPLAY_TZ = timezone(timedelta(hours=8))
@@ -69,7 +70,7 @@ def export_csv(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> tuple[s
 
     def _flush(chunk: list[dict], seq: int):
         ids = list({d["respondentId"] for d in chunk if d.get("respondentId") is not None})
-        names = {u["_id"]: u["username"] for u in db.users.find({"_id": {"$in": ids}}, {"username": 1})}
+        names = users_repo.usernames(db, ids)
         for doc in chunk:
             seq += 1
             by_q = {a["questionId"]: a["value"] for a in doc["answers"]}
