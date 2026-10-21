@@ -25,7 +25,9 @@ def generate_slug() -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    # MongoDB 日期只精确到毫秒；updatedAt 用作乐观锁，返回给前端的值必须与库中一致
+    now = datetime.now(timezone.utc)
+    return now.replace(microsecond=now.microsecond // 1000 * 1000)
 
 
 def _owned(survey_id: ObjectId, owner_id: ObjectId) -> dict:
@@ -102,6 +104,18 @@ def transition_status(db: Database, survey_id: ObjectId, owner_id: ObjectId,
     flt = {"status": {"$in": from_status}} | (extra_filter or {})
     return update_owned(db, survey_id, owner_id,
                         {"$set": {"status": to_status, **(extra_set or {})}}, flt)
+
+
+def save_editor_changes(db: Database, survey_id: ObjectId, owner_id: ObjectId,
+                        expected_updated_at: datetime, set_fields: dict,
+                        bump_version: bool) -> dict | None:
+    """P8 编辑页保存：以读取时的 updatedAt 作为乐观锁条件整体写回题目数组。
+    期间若有其他窗口修改过问卷，条件不匹配，返回 None。"""
+    update = {"$set": dict(set_fields)}
+    if bump_version:
+        update["$inc"] = {"version": 1}
+    return update_owned(db, survey_id, owner_id, update,
+                        extra_filter={"updatedAt": expected_updated_at})
 
 
 def soft_delete(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> bool:

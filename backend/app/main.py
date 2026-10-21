@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.db import get_db, init_db
 from app.errors import register_error_handlers
-from app.routers import auth, surveys
+from app.routers import auth, questions, surveys
 
 
 @asynccontextmanager
@@ -17,6 +17,7 @@ app = FastAPI(title="MongoDB 问卷系统", version="1.0.0", lifespan=lifespan)
 register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(surveys.router)
+app.include_router(questions.router)
 
 
 @app.get("/health")
