@@ -118,6 +118,38 @@ def save_editor_changes(db: Database, survey_id: ObjectId, owner_id: ObjectId,
                         extra_filter={"updatedAt": expected_updated_at})
 
 
+def find_by_slug(db: Database, slug: str) -> dict | None:
+    """P12 / P14 填写者通过链接打开问卷，走 uniq_slug 索引。"""
+    return db.surveys.find_one({"slug": slug})
+
+
+def reserve_slot(db: Database, survey_id: ObjectId, now: datetime) -> bool:
+    """P15 第一步：原子地占用一个答卷名额。
+
+    问卷可填写（已发布、未删除、未截止、未满额）的检查与 responseCount + 1 在同一条
+    更新语句中完成，多人同时提交也不会超过上限。"""
+    res = db.surveys.update_one(
+        {
+            "_id": survey_id,
+            "status": "published",
+            "deletedAt": None,
+            "$and": [
+                {"$or": [{"settings.deadline": None}, {"settings.deadline": {"$gt": now}}]},
+                {"$or": [{"settings.maxResponses": None},
+                         {"$expr": {"$lt": ["$responseCount", "$settings.maxResponses"]}}]},
+            ],
+        },
+        {"$inc": {"responseCount": 1}},
+    )
+    return res.modified_count == 1
+
+
+def release_slot(db: Database, survey_id: ObjectId) -> None:
+    """插入答卷失败时归还名额。"""
+    db.surveys.update_one({"_id": survey_id, "responseCount": {"$gt": 0}},
+                          {"$inc": {"responseCount": -1}})
+
+
 def soft_delete(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> bool:
     """P6 软删除：只写 deletedAt，答卷保留。"""
     now = _now()

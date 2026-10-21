@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.db import get_db, init_db
 from app.errors import register_error_handlers
-from app.routers import auth, questions, surveys
+from app.routers import auth, public, questions, surveys
 
 
 @asynccontextmanager
@@ -18,6 +18,8 @@ register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(surveys.router)
 app.include_router(questions.router)
+app.include_router(public.router)
+app.include_router(public.preview_router)
 
 
 @app.get("/health")
