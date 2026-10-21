@@ -97,6 +97,24 @@ def test_draft_delete_removes_question_and_rules_pointing_to_it(client, alice):
     assert [x["goto"] for x in q1["logic"]] == [qs["q2"]["questionId"]]
 
 
+def test_draft_delete_clears_default_goto_pointing_to_it(client, alice):
+    s, qs = build_demo_survey(client, alice, publish=False)
+    set_logic(client, alice, s["id"], qs["q1"]["questionId"], [], default_goto=qs["q3"]["questionId"])
+    r = client.delete(f"/api/surveys/{s['id']}/questions/{qs['q3']['questionId']}", headers=alice)
+    assert r.status_code == 200 and r.json()["questions"][0]["defaultGoto"] is None
+
+
+def test_draft_option_removal_drops_list_rules_using_it(client, alice):
+    s, qs = build_demo_survey(client, alice, publish=False)
+    q1 = qs["q1"]
+    set_logic(client, alice, s["id"], q1["questionId"],
+              [rule("in", [opt(q1, "男"), opt(q1, "其他")], "END"), rule("in", [opt(q1, "女")], qs["q3"]["questionId"])])
+    body = {"type": "single", "title": "你的性别", "required": True,
+            "options": [{"optionId": opt(q1, "女"), "text": "女"}, {"optionId": opt(q1, "其他"), "text": "其他"}]}
+    r = client.put(f"/api/surveys/{s['id']}/questions/{q1['questionId']}", json=body, headers=alice)
+    assert [x["when"]["value"] for x in r.json()["questions"][0]["logic"]] == [[opt(q1, "女")]]
+
+
 def test_draft_option_removal_drops_rules_using_it(client, alice):
     s, qs = build_demo_survey(client, alice, publish=False)
     q1 = qs["q1"]

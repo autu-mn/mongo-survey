@@ -263,6 +263,19 @@ def test_concurrent_submissions_respect_max_responses(client, alice, db):
     assert db.surveys.find_one({"_id": ObjectId(s["id"])})["responseCount"] == 3
 
 
+def test_reserve_fails_after_precheck_passed(client, alice, bob, db, monkeypatch):
+    """状态检查通过之后、占名额之前，问卷被别人填满：原子占名额必须失败并返回"已收满"。"""
+    s, qs = build_demo_survey(client, alice, settings={**ALL_DEFAULT, "maxResponses": 1})
+    stale = db.surveys.find_one({"_id": ObjectId(s["id"])})        # 检查时读到的旧文档：还差 1 份
+    db.surveys.update_one({"_id": stale["_id"]}, {"$set": {"responseCount": 1}})  # 期间被别人填满
+    monkeypatch.setattr(fill_service, "_load_fillable", lambda *_: stale)
+    r = submit(client, s["slug"], female_path_answers(qs), bob)
+    assert r.status_code == 409 and r.json()["code"] == "survey_ended"
+    assert r.json()["details"] == {"reason": "full"}
+    assert db.responses.count_documents({}) == 0
+    assert db.surveys.find_one({"_id": stale["_id"]})["responseCount"] == 1
+
+
 def test_concurrent_duplicate_submissions_by_same_user(client, alice, db):
     s, qs = build_demo_survey(client, alice)
     user = _users(db, client, 1)[0]
