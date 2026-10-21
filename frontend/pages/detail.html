@@ -31,46 +31,47 @@
   function render(s) {
     const link = surveyLink(s.slug);
     const st = s.status;
+    const copy = () => navigator.clipboard.writeText(link)
+      .then(() => flash(msg, h("div", { class: "banner ok" }, "链接已复制")));
     mount(document.getElementById("app"),
       h("div", { class: "card" },
-        h("div", { class: "row" }, h("h2", { style: "margin:0" }, s.title), statusBadge(s.displayStatus)),
+        h("div", { class: "title-row" }, h("h2", {}, s.title), statusBadge(s.displayStatus)),
         s.description ? h("p", { class: "muted" }, s.description) : null,
         h("div", { class: "kv" },
           h("span", { class: "k" }, "填写链接"),
-          h("span", {}, st === "draft" ? h("span", { class: "muted" }, "发布后可用") : h("span", {},
-            h("a", { href: link, target: "_blank" }, link), " ",
-            h("button", { class: "small", onclick: () => navigator.clipboard.writeText(link).then(() => flash(msg, h("div", { class: "banner ok" }, "链接已复制"))) }, "复制"))),
-          h("span", { class: "k" }, "答卷数"),
-          h("span", {}, s.settings.maxResponses ? `${s.responseCount} / ${s.settings.maxResponses}` : s.responseCount),
-          h("span", { class: "k" }, "题目数"), h("span", {}, s.questionCount),
-          h("span", { class: "k" }, "截止时间"), h("span", {}, fmtTime(s.deadline)),
-          h("span", { class: "k" }, "填写设置"), h("span", {}, [
-            s.settings.requireLogin ? "需登录" : "免登录",
-            s.settings.allowAnonymous ? "匿名" : "实名",
-            s.settings.allowMultipleSubmit ? "可多次填写" : "每人一次",
-          ].join(" · ")),
-          h("span", { class: "k" }, "问卷版本"), h("span", {}, s.version),
-          h("span", { class: "k" }, "创建时间"), h("span", {}, fmtTime(s.createdAt)),
-          h("span", { class: "k" }, "最近修改"), h("span", {}, fmtTime(s.updatedAt)),
-          h("span", { class: "k" }, "发布时间"), h("span", {}, fmtTime(s.publishedAt)),
+          h("span", {}, st === "draft" ? h("span", { class: "muted" }, "发布后生成") : h("span", { class: "row", style: "gap:10px" },
+            h("a", { href: link, target: "_blank" }, link), h("button", { class: "small", onclick: copy }, "复制链接"))),
+          h("span", { class: "k" }, "已收答卷"),
+          h("span", {}, s.settings.maxResponses ? `${s.responseCount} 份，上限 ${s.settings.maxResponses} 份` : `${s.responseCount} 份`),
+          h("span", { class: "k" }, "题目"), h("span", {}, `${s.questionCount} 道`),
+          h("span", { class: "k" }, "截止时间"), h("span", {}, s.deadline ? fmtTime(s.deadline) : "不限"),
+          h("span", { class: "k" }, "填写规则"), h("span", {},
+            h("span", { class: "tag" }, s.settings.requireLogin ? "需要登录" : "无需登录"),
+            h("span", { class: "tag" }, s.settings.allowAnonymous ? "匿名" : "记录填写人"),
+            h("span", { class: "tag" }, s.settings.allowMultipleSubmit ? "可重复填写" : "每人一次")),
+          h("span", { class: "k" }, "版本"), h("span", { class: "muted" }, `第 ${s.version} 版，最近修改于 ${fmtTime(s.updatedAt)}`),
+          h("span", { class: "k" }, "创建与发布"), h("span", { class: "muted" },
+            `${fmtTime(s.createdAt)} 创建` + (s.publishedAt ? `，${fmtTime(s.publishedAt)} 发布` : "，尚未发布")),
         ),
       ),
       h("div", { class: "card row" },
         h("a", { class: "btn primary", href: `/surveys/${id}/edit` }, "编辑题目"),
         h("a", { class: "btn", href: `/surveys/${id}/preview` }, "预览"),
-        h("a", { class: "btn", href: `/surveys/${id}/share` }, st === "draft" ? "发布 / 分享设置" : "分享设置"),
+        h("a", { class: "btn", href: `/surveys/${id}/share` }, st === "draft" ? "发布" : "分享设置"),
+        h("a", { class: "btn", href: `/surveys/${id}/stats` }, "查看统计"),
         st === "published" ? h("button", { onclick: () => act("POST", `/api/surveys/${id}/close`, "问卷已关闭") }, "关闭问卷") : null,
         st === "closed" ? h("button", { onclick: () => act("POST", `/api/surveys/${id}/reopen`, "问卷已重新开放") }, "重新开放") : null,
-        h("a", { class: "btn", href: `/surveys/${id}/stats` }, "统计与导出"),
-        h("button", { onclick: () => act("POST", `/api/surveys/${id}/recount`, "答卷数已按实际数据校准") }, "校准答卷数"),
+        h("span", { class: "spacer" }),
+        h("button", { class: "small", title: "按数据库中的实际答卷重新计数",
+          onclick: () => act("POST", `/api/surveys/${id}/recount`, "答卷数已重新计数") }, "重新计数"),
         h("button", {
-          class: "danger",
+          class: "danger small",
           onclick: async () => {
-            if (!confirm("确定删除该问卷？删除后链接将失效，答卷数据会保留在数据库中。")) return;
+            if (!confirm("删除后填写链接立即失效，已收到的答卷仍保留在数据库中。确定删除？")) return;
             await creatorCall("DELETE", `/api/surveys/${id}`);
             location.href = "/";
           },
-        }, "删除"),
+        }, "删除问卷"),
       ),
     );
   }

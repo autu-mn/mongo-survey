@@ -31,7 +31,7 @@ async function edit(method, path, body, okText) {
 const base = () => `/api/surveys/${surveyId}`;
 const isLocked = () => survey.status !== "draft";
 const sorted = () => [...survey.questions].sort((a, b) => a.order - b.order);
-const label = (q) => `Q${q.order} ${q.title}${q.hidden ? "（已隐藏）" : ""}`;
+const label = (q) => `第 ${q.order} 题：${q.title}${q.hidden ? "（已隐藏）" : ""}`;
 
 // ---------- 基本信息 ----------
 
@@ -39,17 +39,17 @@ function basicInfoCard() {
   const title = h("input", { type: "text", class: "grow", value: survey.title, maxlength: 200 });
   const desc = h("textarea", { class: "grow" }, survey.description);
   return h("div", { class: "card" },
-    h("div", { class: "row" },
-      h("h2", { style: "margin:0" }, "编辑问卷"), statusBadge(survey.displayStatus),
-      h("span", { class: "spacer", style: "flex:1" }),
+    h("div", { class: "title-row" },
+      h("h2", {}, survey.title), statusBadge(survey.displayStatus),
+      h("span", { class: "spacer" }),
       h("a", { class: "btn", href: `/surveys/${surveyId}/preview` }, "预览"),
-      h("a", { class: "btn", href: `/surveys/${surveyId}` }, "返回管理页"),
+      h("a", { href: `/surveys/${surveyId}` }, "返回管理页"),
     ),
-    isLocked() ? h("div", { class: "banner info", style: "margin-top:12px" },
-      "问卷已发布：删除题目或选项会改为隐藏（统计中保留历史数据），不能修改题型。") : null,
-    h("div", { class: "col" }, h("label", {}, "标题"), title),
+    isLocked() ? h("div", { class: "banner info", style: "margin:14px 0 0" },
+      "问卷已发布：删除题目或选项会改为隐藏，统计中仍保留它们的历史数据；题型不能再修改。") : null,
+    h("div", { class: "col", style: "margin-top:18px" }, h("label", {}, "标题"), title),
     h("div", { class: "col" }, h("label", {}, "说明"), desc),
-    h("button", { onclick: () => edit("PATCH", base(), { title: title.value.trim(), description: desc.value }, "已保存") }, "保存标题和说明"),
+    h("button", { onclick: () => edit("PATCH", base(), { title: title.value.trim(), description: desc.value }, "标题和说明已保存") }, "保存标题和说明"),
   );
 }
 
@@ -78,13 +78,15 @@ function readConstraints(box) {
 
 function optionEditor(q) {
   const box = h("div", {});
+  const relabel = () => [...box.children].forEach((line, i) => { line.firstChild.textContent = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i] || ""; });
   const addLine = (opt) => {
-    const input = h("input", { type: "text", class: "grow", value: opt?.text || "", maxlength: 200 });
-    const line = h("div", { class: "option-line" }, input,
-      h("button", { class: "small danger", onclick: () => line.remove() }, "删除"));
+    const input = h("input", { type: "text", class: "grow", value: opt?.text || "", maxlength: 200, "aria-label": "选项内容" });
+    const line = h("div", { class: "option-line" }, h("span", { class: "letter" }), input,
+      h("button", { class: "small danger", onclick: () => { line.remove(); relabel(); } }, "删除"));
     line.dataset.optionId = opt?.optionId || "";
     line.read = () => ({ optionId: line.dataset.optionId || null, text: input.value.trim() });
     box.append(line);
+    relabel();
   };
   (q.options || []).filter((o) => !o.hidden).forEach(addLine);
   const hiddenOpts = (q.options || []).filter((o) => o.hidden);
@@ -99,7 +101,7 @@ function optionEditor(q) {
 function questionCard(q, index, list) {
   const typeSel = h("select", { disabled: isLocked() },
     Object.entries(TYPE_TEXT).map(([k, v]) => h("option", { value: k, selected: k === q.type }, v)));
-  const title = h("input", { type: "text", class: "grow", value: q.title, maxlength: 500 });
+  const title = h("input", { type: "text", class: "grow q-title", value: q.title, maxlength: 500, "aria-label": "题目标题" });
   const desc = h("input", { type: "text", class: "grow", value: q.description || "", placeholder: "题目说明（选填）" });
   const required = h("input", { type: "checkbox", checked: q.required });
   const isChoice = ["single", "multiple"].includes(q.type);
@@ -125,10 +127,11 @@ function questionCard(q, index, list) {
   };
 
   return h("div", { class: "card question-card" + (q.hidden ? " is-hidden" : "") },
-    h("div", { class: "row" },
-      h("strong", {}, `Q${q.order}`), h("span", { class: "badge" }, TYPE_TEXT[q.type]),
+    h("div", { class: "head" },
+      h("span", { class: "qno" }, q.order), h("span", { class: "tag", style: "margin:0" }, TYPE_TEXT[q.type]),
+      q.required ? h("span", { class: "error", style: "font-size:var(--fs-0)" }, "必答") : null,
       q.hidden ? h("span", { class: "badge hidden" }, "已隐藏") : null,
-      h("span", { style: "flex:1" }),
+      h("span", { class: "spacer" }),
       h("button", { class: "small", disabled: index === 0, onclick: () => move(-1) }, "上移"),
       h("button", { class: "small", disabled: index === list.length - 1, onclick: () => move(1) }, "下移"),
       q.hidden
@@ -144,7 +147,7 @@ function questionCard(q, index, list) {
     options ? h("div", { style: "margin-top:10px" }, options.node) : null,
     consBox.children.length ? h("div", { style: "margin-top:6px" }, consBox) : null,
     h("div", { style: "margin-top:10px" }, h("button", { class: "primary", onclick: save }, "保存本题")),
-    q.type in OPS ? logicBox(q) : h("p", { class: "muted" }, "文本填空题不设置跳转，答完后按顺序进入下一题。"),
+    q.type in OPS ? logicBox(q) : h("p", { class: "muted", style: "margin:16px 0 0;font-size:var(--fs-0)" }, "文本填空题没有跳转，答完按顺序进入下一题。"),
   );
 }
 
@@ -201,7 +204,7 @@ function logicBox(q) {
     defaultGoto: defaultGoto.value || null,
   }, "跳转规则已保存");
   return h("div", { class: "logic-box" },
-    h("strong", {}, "跳转规则"), h("span", { class: "muted" }, "（按顺序匹配，命中第一条即跳转；只能跳到后面的题）"),
+    h("strong", {}, "跳转"), h("span", { class: "muted", style: "font-size:var(--fs-0)" }, "从上往下匹配，命中第一条就跳转；只能跳到后面的题"),
     h("div", { style: "margin-top:8px" }, rows),
     h("div", { class: "logic-row" }, h("button", { class: "small", onclick: () => ruleRow(q, null, rows) }, "+ 添加规则")),
     h("div", { class: "logic-row" }, "否则跳到", defaultGoto),
@@ -220,16 +223,17 @@ function addQuestionCard() {
     if (type === "single" || type === "multiple") body.options = [{ text: "选项 1" }, { text: "选项 2" }];
     edit("POST", `${base()}/questions`, body, "题目已添加");
   };
-  return h("div", { class: "card" }, h("h3", {}, "添加题目"),
-    h("div", { class: "row" }, typeSel, title, h("button", { class: "primary", onclick: add }, "添加")),
-    h("p", { class: "muted" }, "选择题会先生成两个默认选项，添加后在题目卡片中修改。"));
+  return h("div", { class: "card add-card" }, h("h3", { style: "font-size:var(--fs-2)" }, "添加题目"),
+    h("div", { class: "row" }, typeSel, title, h("button", { class: "primary", onclick: add }, "添加题目")),
+    h("p", { class: "muted", style: "margin:10px 0 0;font-size:var(--fs-0)" }, "选择题会先带两个选项，添加后在题目里修改。"));
 }
 
 function render() {
   const list = sorted();
   mount(document.getElementById("app"),
     basicInfoCard(),
-    list.length ? list.map((q, i) => questionCard(q, i, list)) : h("div", { class: "card muted" }, "还没有题目。"),
+    list.length ? list.map((q, i) => questionCard(q, i, list))
+      : h("div", { class: "card" }, h("p", { class: "muted" }, "还没有题目。在下方选择题型、填写题目，添加第一题。")),
     addQuestionCard(),
   );
 }

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<main class="narrow">
+<main>
   <div id="msg"></div>
   <div id="app"></div>
 </main>
@@ -31,15 +31,16 @@
       requireLogin: h("input", { type: "checkbox", checked: s.requireLogin }),
       allowAnonymous: h("input", { type: "checkbox", checked: s.allowAnonymous }),
       allowMultipleSubmit: h("input", { type: "checkbox", checked: s.allowMultipleSubmit }),
-      deadline: h("input", { type: "datetime-local", value: toLocalInput(s.deadline) }),
-      maxResponses: h("input", { type: "number", min: 1, value: s.maxResponses ?? "", placeholder: "不限" }),
+      deadline: h("input", { id: "deadline", type: "datetime-local", value: toLocalInput(s.deadline), style: "max-width:260px" }),
+      maxResponses: h("input", { id: "max", type: "number", min: 1, value: s.maxResponses ?? "", placeholder: "不限", style: "max-width:160px" }),
       message: h("textarea", {}, s.completion.message),
       redirectUrl: h("input", { type: "url", value: s.completion.redirectUrl ?? "", placeholder: "https://…（选填）" }),
     };
     const hint = h("span", { class: "muted" });
     const sync = () => {
       hint.textContent = !f.allowMultipleSubmit.checked && !f.requireLogin.checked
-        ? "提示：限制每人一次时必须要求登录，否则无法识别是否同一个人。" : "";
+        ? "不登录就无法识别是不是同一个人，请勾选\"填写前需要登录\"或\"同一人可以重复填写\"。" : "";
+      hint.className = hint.textContent ? "error" : "muted";
     };
     f.requireLogin.onchange = f.allowMultipleSubmit.onchange = sync;
     sync();
@@ -68,34 +69,40 @@
     };
 
     const link = surveyLink(survey.slug);
+    const section = (title, note, ...fields) => h("div", { class: "card fsec" },
+      h("div", {}, h("h3", {}, title), h("p", { class: "muted" }, note)),
+      h("div", {}, ...fields));
     mount(document.getElementById("app"),
       h("div", { class: "card" },
-        h("div", { class: "row" }, h("h2", { style: "margin:0" }, survey.title), statusBadge(survey.displayStatus)),
-        h("p", {}, "填写链接：", survey.status === "draft"
-          ? h("span", { class: "muted" }, link + "（发布后生效）")
-          : h("a", { href: link, target: "_blank" }, link), " ",
-          h("button", { class: "small", onclick: () => navigator.clipboard.writeText(link) }, "复制")),
-      ),
-      h("div", { class: "card" },
-        h("h3", {}, "填写设置"),
-        h("div", { class: "col" }, h("label", {}, f.requireLogin, " 填写前必须登录")),
-        h("div", { class: "col" }, h("label", {}, f.allowAnonymous, " 匿名填写（答卷不记录填写者身份）")),
-        h("div", { class: "col" }, h("label", {}, f.allowMultipleSubmit, " 允许同一人多次填写"), hint),
-        h("div", { class: "col" }, h("label", {}, "截止时间"), f.deadline),
-        h("div", { class: "col" }, h("label", {}, "答卷数上限"), f.maxResponses),
-        h("h3", {}, "提交后"),
-        h("div", { class: "col" }, h("label", {}, "提交成功提示语"), f.message),
-        h("div", { class: "col" }, h("label", {}, "结束后跳转的外部链接"), f.redirectUrl),
-        h("div", { class: "row" },
-          h("button", { onclick: () => run(saveSettings, "设置已保存") }, "保存设置"),
+        h("div", { class: "title-row" }, h("h2", {}, survey.title), statusBadge(survey.displayStatus)),
+        h("p", { class: "row", style: "gap:10px;margin:8px 0 0" },
           survey.status === "draft"
-            ? h("button", { class: "primary", onclick: () => run(async () => {
-                await saveSettings();
-                await creatorCall("POST", `/api/surveys/${id}/publish`);
-              }, "已发布，可以把链接发给别人了") }, "保存并发布")
-            : null,
-          h("a", { class: "btn", href: `/surveys/${id}` }, "返回管理页"),
-        ),
+            ? h("span", { class: "muted" }, `发布后，问卷可通过 ${link} 填写`)
+            : h("a", { href: link, target: "_blank" }, link),
+          survey.status === "draft" ? null
+            : h("button", { class: "small", onclick: () => navigator.clipboard.writeText(link)
+                .then(() => flash(msg, h("div", { class: "banner ok" }, "链接已复制"))) }, "复制链接")),
+      ),
+      section("谁可以填写", "默认要求登录。不登录就无法识别同一个人，因此关闭登录时必须允许重复填写。",
+        h("div", { class: "col" }, h("label", {}, f.requireLogin, " 填写前需要登录")),
+        h("div", { class: "col" }, h("label", {}, f.allowAnonymous, " 匿名填写，答卷不记录填写人")),
+        h("div", { class: "col" }, h("label", {}, f.allowMultipleSubmit, " 同一人可以重复填写"), hint)),
+      section("何时停止收集", "到达截止时间或答卷数达到上限后，链接显示问卷已结束。",
+        h("div", { class: "col" }, h("label", { for: "deadline" }, "截止时间"), f.deadline),
+        h("div", { class: "col" }, h("label", { for: "max" }, "答卷数上限"), f.maxResponses)),
+      section("提交之后", "填写人提交后看到的提示语，以及可选的跳转链接。",
+        h("div", { class: "col" }, h("label", {}, "提示语"), f.message),
+        h("div", { class: "col" }, h("label", {}, "跳转链接"), f.redirectUrl)),
+      h("div", { class: "card row add-card" },
+        survey.status === "draft"
+          ? h("button", { class: "primary", onclick: () => run(async () => {
+              await saveSettings();
+              await creatorCall("POST", `/api/surveys/${id}/publish`);
+            }, "问卷已发布，可以把链接发出去了") }, "保存并发布")
+          : null,
+        h("button", { class: survey.status === "draft" ? "" : "primary", onclick: () => run(saveSettings, "设置已保存") }, "保存设置"),
+        h("span", { class: "spacer" }),
+        h("a", { href: `/surveys/${id}` }, "返回管理页"),
       ),
     );
   }

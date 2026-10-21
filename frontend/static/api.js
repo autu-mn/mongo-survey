@@ -84,13 +84,17 @@ function mount(root, ...children) {
 function renderNav() {
   const user = Auth.user();
   const nav = h("header", { class: "nav" },
-    h("a", { class: "brand", href: "/" }, "问卷系统"),
+    h("a", { class: "brand", href: "/" }, brandMark(), "问卷系统"),
     h("a", { href: "/" }, "我的问卷"),
     h("span", { class: "spacer" }),
-    user ? h("span", { class: "muted" }, user.username) : null,
+    user ? h("span", { class: "who" }, user.username) : null,
     user ? h("a", { href: "#", onclick: (e) => { e.preventDefault(); Auth.clear(); location.href = "/login"; } }, "退出") : h("a", { href: loginUrl() }, "登录"),
   );
   document.body.prepend(nav);
+}
+
+function brandMark() {
+  return h("span", { class: "brand-mark", "aria-hidden": "true" }, h("i"), h("i"), h("i"));
 }
 
 function errorBanner(err) {

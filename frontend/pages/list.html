@@ -9,18 +9,15 @@
 <body>
 <main>
   <div class="card">
-    <h2>新建问卷</h2>
+    <h2>我的问卷</h2>
     <div id="create-msg"></div>
-    <form id="create" class="row">
-      <input id="title" class="grow" type="text" placeholder="问卷标题" required maxlength="200">
-      <input id="desc" class="grow" type="text" placeholder="问卷说明（选填）" maxlength="5000">
-      <button class="primary" type="submit">创建并编辑</button>
+    <form id="create" class="row" style="margin-top:16px">
+      <input id="title" class="grow" type="text" placeholder="新问卷的标题，例如：食堂满意度调查" required maxlength="200" aria-label="问卷标题">
+      <input id="desc" class="grow" type="text" placeholder="说明（选填）" maxlength="5000" aria-label="问卷说明">
+      <button class="primary" type="submit">新建问卷</button>
     </form>
   </div>
-  <div class="card">
-    <h2>我的问卷</h2>
-    <div id="list"></div>
-  </div>
+  <div class="card" id="list"></div>
 </main>
 <script src="/static/api.js"></script>
 <script>
@@ -31,18 +28,19 @@
     const list = document.getElementById("list");
     const surveys = await creatorCall("GET", "/api/surveys");
     if (!surveys.length) {
-      mount(list, h("p", { class: "muted" }, "还没有问卷，先在上面新建一个吧。"));
+      mount(list, h("p", { class: "muted" }, "还没有问卷。在上方填写标题，新建第一份。"));
       return;
     }
     mount(list, h("table", {},
-      h("thead", {}, h("tr", {}, ["标题", "状态", "答卷数", "截止时间", "创建时间", ""].map((t) => h("th", {}, t)))),
+      h("thead", {}, h("tr", {},
+        h("th", {}, "标题"), h("th", {}, "状态"), h("th", { class: "num" }, "答卷"),
+        h("th", {}, "截止时间"), h("th", {}, "创建于"))),
       h("tbody", {}, surveys.map((s) => h("tr", {},
-        h("td", {}, h("a", { href: `/surveys/${s.id}` }, s.title)),
+        h("td", { class: "title" }, h("a", { href: `/surveys/${s.id}` }, s.title)),
         h("td", {}, statusBadge(s.displayStatus)),
-        h("td", {}, s.maxResponses ? `${s.responseCount} / ${s.maxResponses}` : s.responseCount),
-        h("td", {}, fmtTime(s.deadline)),
-        h("td", {}, fmtTime(s.createdAt)),
-        h("td", {}, h("a", { href: `/surveys/${s.id}` }, "管理")),
+        h("td", { class: "num" }, s.maxResponses ? `${s.responseCount} / ${s.maxResponses}` : s.responseCount),
+        h("td", { class: "muted" }, s.deadline ? fmtTime(s.deadline) : "不限"),
+        h("td", { class: "muted" }, fmtTime(s.createdAt)),
       ))),
     ));
   }

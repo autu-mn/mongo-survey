@@ -7,9 +7,12 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<main class="narrow">
+<main class="narrow auth">
+  <div class="sheet-head">
+    <h2 class="brand-title"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>问卷系统</h2>
+    <p>创建问卷，发出链接，回收并统计答卷</p>
+  </div>
   <div class="card">
-    <h2>问卷系统</h2>
     <div class="tabs">
       <button id="tab-login" class="active">登录</button>
       <button id="tab-register">注册</button>
@@ -25,7 +28,7 @@
         <input id="password" type="password" autocomplete="current-password" required minlength="6">
         <span class="muted" id="pw-hint" hidden>至少 6 位</span>
       </div>
-      <button class="primary" id="submit" type="submit">登录</button>
+      <button class="primary" id="submit" type="submit" style="width:100%;justify-content:center">登录</button>
     </form>
   </div>
 </main>
