@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     mongo_db: str = "survey_system"
     jwt_secret: str = "change-me-in-production"
     jwt_expire_minutes: int = 60 * 24
+    bcrypt_rounds: int = 12
 
 
 settings = Settings()

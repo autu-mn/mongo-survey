@@ -8,11 +8,11 @@ from app.config import settings
 JWT_ALGORITHM = "HS256"
 
 # 用户不存在时也做一次哈希比较，使"用户不存在"和"密码错误"耗时相同，避免枚举用户名
-_DUMMY_HASH = bcrypt.hashpw(b"dummy-password", bcrypt.gensalt()).decode()
+_DUMMY_HASH = bcrypt.hashpw(b"dummy-password", bcrypt.gensalt(settings.bcrypt_rounds)).decode()
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode()
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(settings.bcrypt_rounds)).decode()
 
 
 def verify_password(password: str, password_hash: str | None) -> bool:

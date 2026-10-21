@@ -1,6 +1,7 @@
 import os
 
 os.environ["MONGO_DB"] = "survey_system_test"
+os.environ["BCRYPT_ROUNDS"] = "4"
 
 import pytest
 from fastapi.testclient import TestClient
