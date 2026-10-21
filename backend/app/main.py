@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.db import get_db, init_db
+from app.errors import register_error_handlers
+from app.routers import auth
 
 
 @asynccontextmanager
@@ -12,6 +14,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MongoDB 问卷系统", version="1.0.0", lifespan=lifespan)
+register_error_handlers(app)
+app.include_router(auth.router)
 
 
 @app.get("/health")
