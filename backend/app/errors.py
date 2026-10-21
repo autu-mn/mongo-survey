@@ -24,7 +24,8 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError):
         details = [
-            {"field": ".".join(str(p) for p in err["loc"][1:]), "message": err["msg"]}
+            {"field": ".".join(str(p) for p in err["loc"][1:]),
+             "message": err["msg"].removeprefix("Value error, ")}
             for err in exc.errors()
         ]
         return JSONResponse(

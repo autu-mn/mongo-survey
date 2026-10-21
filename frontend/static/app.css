@@ -1,0 +1,71 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: #f5f6f8; color: #222; font-size: 14px; line-height: 1.6;
+}
+a { color: #2463d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+header.nav {
+  background: #fff; border-bottom: 1px solid #e3e5e8; padding: 10px 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+header.nav .brand { font-weight: 600; font-size: 16px; color: #222; }
+header.nav .spacer { flex: 1; }
+main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+main.narrow { max-width: 640px; }
+.card { background: #fff; border: 1px solid #e3e5e8; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.card h2, .card h3 { margin-top: 0; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+label { font-weight: 500; }
+input[type=text], input[type=password], input[type=number], input[type=url],
+input[type=datetime-local], textarea, select {
+  padding: 6px 10px; border: 1px solid #c9ccd1; border-radius: 6px; font: inherit; background: #fff;
+}
+textarea { min-height: 70px; resize: vertical; }
+input.grow, textarea.grow { flex: 1; min-width: 200px; }
+button, .btn {
+  padding: 6px 14px; border: 1px solid #c9ccd1; border-radius: 6px; background: #fff;
+  cursor: pointer; font: inherit; color: #222; display: inline-block;
+}
+button:hover, .btn:hover { background: #f0f2f5; text-decoration: none; }
+button.primary, .btn.primary { background: #2463d6; border-color: #2463d6; color: #fff; }
+button.primary:hover, .btn.primary:hover { background: #1c51b3; }
+button.danger { color: #c62828; border-color: #e6b3b3; }
+button.small { padding: 2px 8px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eceef1; }
+th { color: #666; font-weight: 500; }
+.badge { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12px; background: #eceef1; color: #555; }
+.badge.draft { background: #eceef1; }
+.badge.open { background: #e3f4e6; color: #1e7b34; }
+.badge.expired, .badge.full { background: #fff3dc; color: #9a6400; }
+.badge.closed { background: #fde7e7; color: #b42318; }
+.badge.hidden { background: #fde7e7; color: #b42318; }
+.muted { color: #888; }
+.error { color: #c62828; }
+#msg { position: sticky; top: 0; z-index: 10; }
+.banner { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+.banner.error { background: #fdecec; border: 1px solid #f5c2c2; }
+.banner.info { background: #eaf2fe; border: 1px solid #c3d8fb; color: #1c4fa3; }
+.banner.ok { background: #e7f6ea; border: 1px solid #b8e2c1; color: #1e7b34; }
+.banner ul { margin: 6px 0 0; padding-left: 20px; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; }
+.kv .k { color: #888; }
+.question-card { border-left: 4px solid #2463d6; }
+.question-card.is-hidden { border-left-color: #c9ccd1; opacity: .75; }
+.logic-box { background: #f7f8fa; border: 1px dashed #c9ccd1; border-radius: 6px; padding: 12px; margin-top: 12px; }
+.logic-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.checks { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.option-line { display: flex; gap: 8px; margin-bottom: 6px; }
+.bar-wrap { background: #eceef1; border-radius: 4px; height: 14px; width: 220px; overflow: hidden; }
+.bar { background: #2463d6; height: 100%; }
+.fill-question h3 { margin-bottom: 4px; }
+.fill-option { display: block; padding: 8px 12px; border: 1px solid #e3e5e8; border-radius: 6px; margin: 6px 0; cursor: pointer; }
+.fill-option:hover { background: #f7f8fa; }
+.actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 16px; }
+.values { max-height: 220px; overflow: auto; margin: 6px 0 0; padding-left: 20px; }
+.tabs { display: flex; gap: 0; margin-bottom: 16px; }
+.tabs button { border-radius: 0; flex: 1; }
+.tabs button.active { background: #2463d6; color: #fff; border-color: #2463d6; }

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>问卷管理 - 问卷系统</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <div id="msg"></div>
+  <div id="app"></div>
+</main>
+<script src="/static/api.js"></script>
+<script>
+  requireLogin();
+  renderNav();
+  const id = pathParam(1);
+  const msg = document.getElementById("msg");
+
+  async function act(method, path, okText) {
+    try {
+      await creatorCall(method, path);
+      flash(msg, h("div", { class: "banner ok" }, okText));
+      await load();
+    } catch (err) {
+      flash(msg, errorBanner(err), 0);
+    }
+  }
+
+  function render(s) {
+    const link = surveyLink(s.slug);
+    const st = s.status;
+    mount(document.getElementById("app"),
+      h("div", { class: "card" },
+        h("div", { class: "row" }, h("h2", { style: "margin:0" }, s.title), statusBadge(s.displayStatus)),
+        s.description ? h("p", { class: "muted" }, s.description) : null,
+        h("div", { class: "kv" },
+          h("span", { class: "k" }, "填写链接"),
+          h("span", {}, st === "draft" ? h("span", { class: "muted" }, "发布后可用") : h("span", {},
+            h("a", { href: link, target: "_blank" }, link), " ",
+            h("button", { class: "small", onclick: () => navigator.clipboard.writeText(link).then(() => flash(msg, h("div", { class: "banner ok" }, "链接已复制"))) }, "复制"))),
+          h("span", { class: "k" }, "答卷数"),
+          h("span", {}, s.settings.maxResponses ? `${s.responseCount} / ${s.settings.maxResponses}` : s.responseCount),
+          h("span", { class: "k" }, "题目数"), h("span", {}, s.questionCount),
+          h("span", { class: "k" }, "截止时间"), h("span", {}, fmtTime(s.deadline)),
+          h("span", { class: "k" }, "填写设置"), h("span", {}, [
+            s.settings.requireLogin ? "需登录" : "免登录",
+            s.settings.allowAnonymous ? "匿名" : "实名",
+            s.settings.allowMultipleSubmit ? "可多次填写" : "每人一次",
+          ].join(" · ")),
+          h("span", { class: "k" }, "问卷版本"), h("span", {}, s.version),
+          h("span", { class: "k" }, "创建时间"), h("span", {}, fmtTime(s.createdAt)),
+          h("span", { class: "k" }, "最近修改"), h("span", {}, fmtTime(s.updatedAt)),
+          h("span", { class: "k" }, "发布时间"), h("span", {}, fmtTime(s.publishedAt)),
+        ),
+      ),
+      h("div", { class: "card row" },
+        h("a", { class: "btn primary", href: `/surveys/${id}/edit` }, "编辑题目"),
+        h("a", { class: "btn", href: `/surveys/${id}/preview` }, "预览"),
+        h("a", { class: "btn", href: `/surveys/${id}/share` }, st === "draft" ? "发布 / 分享设置" : "分享设置"),
+        st === "published" ? h("button", { onclick: () => act("POST", `/api/surveys/${id}/close`, "问卷已关闭") }, "关闭问卷") : null,
+        st === "closed" ? h("button", { onclick: () => act("POST", `/api/surveys/${id}/reopen`, "问卷已重新开放") }, "重新开放") : null,
+        h("a", { class: "btn", href: `/surveys/${id}/stats` }, "统计与导出"),
+        h("button", { onclick: () => act("POST", `/api/surveys/${id}/recount`, "答卷数已按实际数据校准") }, "校准答卷数"),
+        h("button", {
+          class: "danger",
+          onclick: async () => {
+            if (!confirm("确定删除该问卷？删除后链接将失效，答卷数据会保留在数据库中。")) return;
+            await creatorCall("DELETE", `/api/surveys/${id}`);
+            location.href = "/";
+          },
+        }, "删除"),
+      ),
+    );
+  }
+
+  async function load() {
+    try {
+      render(await creatorCall("GET", `/api/surveys/${id}`));
+    } catch (err) {
+      mount(document.getElementById("app"), errorBanner(err));
+    }
+  }
+  load();
+</script>
+</body>
+</html>

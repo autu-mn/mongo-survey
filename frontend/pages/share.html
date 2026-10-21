@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>发布与分享设置 - 问卷系统</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="narrow">
+  <div id="msg"></div>
+  <div id="app"></div>
+</main>
+<script src="/static/api.js"></script>
+<script>
+  requireLogin();
+  renderNav();
+  const id = pathParam(1);
+  const msg = document.getElementById("msg");
+
+  // datetime-local 使用本地时间，提交时转成带时区的 ISO 字符串
+  const toLocalInput = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  function render(survey) {
+    const s = survey.settings;
+    const f = {
+      requireLogin: h("input", { type: "checkbox", checked: s.requireLogin }),
+      allowAnonymous: h("input", { type: "checkbox", checked: s.allowAnonymous }),
+      allowMultipleSubmit: h("input", { type: "checkbox", checked: s.allowMultipleSubmit }),
+      deadline: h("input", { type: "datetime-local", value: toLocalInput(s.deadline) }),
+      maxResponses: h("input", { type: "number", min: 1, value: s.maxResponses ?? "", placeholder: "不限" }),
+      message: h("textarea", {}, s.completion.message),
+      redirectUrl: h("input", { type: "url", value: s.completion.redirectUrl ?? "", placeholder: "https://…（选填）" }),
+    };
+    const hint = h("span", { class: "muted" });
+    const sync = () => {
+      hint.textContent = !f.allowMultipleSubmit.checked && !f.requireLogin.checked
+        ? "提示：限制每人一次时必须要求登录，否则无法识别是否同一个人。" : "";
+    };
+    f.requireLogin.onchange = f.allowMultipleSubmit.onchange = sync;
+    sync();
+
+    const read = () => ({
+      requireLogin: f.requireLogin.checked,
+      allowAnonymous: f.allowAnonymous.checked,
+      allowMultipleSubmit: f.allowMultipleSubmit.checked,
+      deadline: f.deadline.value ? new Date(f.deadline.value).toISOString() : null,
+      maxResponses: f.maxResponses.value ? Number(f.maxResponses.value) : null,
+      completion: { message: f.message.value, redirectUrl: f.redirectUrl.value.trim() || null },
+    });
+
+    const saveSettings = async () => {
+      await creatorCall("PUT", `/api/surveys/${id}/settings`, read());
+    };
+
+    const run = async (fn, okText) => {
+      try {
+        await fn();
+        flash(msg, h("div", { class: "banner ok" }, okText));
+        render(await creatorCall("GET", `/api/surveys/${id}`));
+      } catch (err) {
+        flash(msg, errorBanner(err), 0);
+      }
+    };
+
+    const link = surveyLink(survey.slug);
+    mount(document.getElementById("app"),
+      h("div", { class: "card" },
+        h("div", { class: "row" }, h("h2", { style: "margin:0" }, survey.title), statusBadge(survey.displayStatus)),
+        h("p", {}, "填写链接：", survey.status === "draft"
+          ? h("span", { class: "muted" }, link + "（发布后生效）")
+          : h("a", { href: link, target: "_blank" }, link), " ",
+          h("button", { class: "small", onclick: () => navigator.clipboard.writeText(link) }, "复制")),
+      ),
+      h("div", { class: "card" },
+        h("h3", {}, "填写设置"),
+        h("div", { class: "col" }, h("label", {}, f.requireLogin, " 填写前必须登录")),
+        h("div", { class: "col" }, h("label", {}, f.allowAnonymous, " 匿名填写（答卷不记录填写者身份）")),
+        h("div", { class: "col" }, h("label", {}, f.allowMultipleSubmit, " 允许同一人多次填写"), hint),
+        h("div", { class: "col" }, h("label", {}, "截止时间"), f.deadline),
+        h("div", { class: "col" }, h("label", {}, "答卷数上限"), f.maxResponses),
+        h("h3", {}, "提交后"),
+        h("div", { class: "col" }, h("label", {}, "提交成功提示语"), f.message),
+        h("div", { class: "col" }, h("label", {}, "结束后跳转的外部链接"), f.redirectUrl),
+        h("div", { class: "row" },
+          h("button", { onclick: () => run(saveSettings, "设置已保存") }, "保存设置"),
+          survey.status === "draft"
+            ? h("button", { class: "primary", onclick: () => run(async () => {
+                await saveSettings();
+                await creatorCall("POST", `/api/surveys/${id}/publish`);
+              }, "已发布，可以把链接发给别人了") }, "保存并发布")
+            : null,
+          h("a", { class: "btn", href: `/surveys/${id}` }, "返回管理页"),
+        ),
+      ),
+    );
+  }
+
+  creatorCall("GET", `/api/surveys/${id}`).then(render).catch((err) => mount(document.getElementById("app"), errorBanner(err)));
+</script>
+</body>
+</html>

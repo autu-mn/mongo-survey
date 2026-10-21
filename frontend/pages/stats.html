@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>统计 - 问卷系统</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main>
+  <div id="msg"></div>
+  <div id="app"></div>
+</main>
+<script src="/static/api.js"></script>
+<script>
+  requireLogin();
+  renderNav();
+  const id = pathParam(1);
+  const msg = document.getElementById("msg");
+  let allQuestions = [];
+
+  async function exportCsv() {
+    // 导出接口需要登录凭证，不能直接用链接下载，先取回文件再触发保存
+    const res = await fetch(`/api/surveys/${id}/export.csv`, { headers: { Authorization: "Bearer " + Auth.token() } });
+    if (!res.ok) { flash(msg, errorBanner(await res.json()), 0); return; }
+    const name = decodeURIComponent((res.headers.get("Content-Disposition") || "").split("''")[1] || "export.csv");
+    const url = URL.createObjectURL(await res.blob());
+    h("a", { href: url, download: name }).click();
+    URL.revokeObjectURL(url);
+  }
+
+  function choiceTable(q) {
+    return h("table", {}, h("tbody", {}, q.options.map((o) => h("tr", {},
+      h("td", { style: "width:35%" }, o.text, o.hidden ? h("span", { class: "badge hidden", style: "margin-left:6px" }, "已删除") : null),
+      h("td", { style: "width:240px" }, h("div", { class: "bar-wrap" }, h("div", { class: "bar", style: `width:${(o.ratio * 100).toFixed(1)}%` }))),
+      h("td", { style: "white-space:nowrap" }, `${o.count} ${q.type === "single" ? "人" : "次"}`),
+      h("td", { class: "muted", style: "white-space:nowrap" }, `${(o.ratio * 100).toFixed(1)}%`),
+    ))));
+  }
+
+  function questionStat(q) {
+    return h("div", { class: "card" },
+      h("div", { class: "row" },
+        h("strong", {}, `Q${q.order} ${q.title}`), h("span", { class: "badge" }, TYPE_TEXT[q.type]),
+        q.hidden ? h("span", { class: "badge hidden" }, "已删除") : null),
+      h("p", { class: "muted" }, `回答 ${q.answeredCount} 人，未作答（被跳过或选填未答）${q.skippedCount} 人`),
+      q.options ? choiceTable(q) : null,
+      q.type === "number" ? h("p", {}, q.average === null ? "暂无数据" :
+        `平均值 ${q.average}　最小值 ${q.min}　最大值 ${q.max}`) : null,
+      q.values ? h("details", { open: q.type === "text" },
+        h("summary", {}, `全部填写内容（${q.values.length} 条）`),
+        h("ol", { class: "values" }, q.values.map((v) => h("li", {}, String(v))))) : null,
+    );
+  }
+
+  async function load(questionId) {
+    try {
+      const path = questionId ? `/api/surveys/${id}/stats/${questionId}` : `/api/surveys/${id}/stats`;
+      const data = await creatorCall("GET", path);
+      if (!questionId) allQuestions = data.questions;
+      const pick = h("select", { onchange: (e) => load(e.target.value || null) },
+        h("option", { value: "" }, "整个问卷"),
+        allQuestions.map((q) => h("option", { value: q.questionId, selected: q.questionId === questionId }, `Q${q.order} ${q.title}`)));
+      mount(document.getElementById("app"),
+        h("div", { class: "card" },
+          h("div", { class: "row" },
+            h("h2", { style: "margin:0" }, `${data.title} · 统计`),
+            h("span", { style: "flex:1" }),
+            h("button", { onclick: exportCsv }, "导出 CSV"),
+            h("a", { class: "btn", href: `/surveys/${id}` }, "返回管理页")),
+          h("p", {}, "共收到 ", h("strong", {}, data.totalResponses), " 份答卷。查看：", pick),
+        ),
+        data.questions.map(questionStat),
+      );
+    } catch (err) {
+      mount(document.getElementById("app"), errorBanner(err));
+    }
+  }
+  load(null);
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 - 问卷系统</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="narrow">
+  <div class="card">
+    <h2>问卷系统</h2>
+    <div class="tabs">
+      <button id="tab-login" class="active">登录</button>
+      <button id="tab-register">注册</button>
+    </div>
+    <div id="msg"></div>
+    <form id="form">
+      <div class="col">
+        <label for="username">用户名</label>
+        <input id="username" type="text" autocomplete="username" required minlength="3" maxlength="32">
+      </div>
+      <div class="col">
+        <label for="password">密码</label>
+        <input id="password" type="password" autocomplete="current-password" required minlength="6">
+        <span class="muted" id="pw-hint" hidden>至少 6 位</span>
+      </div>
+      <button class="primary" id="submit" type="submit">登录</button>
+    </form>
+  </div>
+</main>
+<script src="/static/api.js"></script>
+<script>
+  let mode = "login";
+  const $ = (id) => document.getElementById(id);
+
+  // 只允许站内相对路径，防止被利用跳转到外部网站
+  function redirectTarget() {
+    const r = new URLSearchParams(location.search).get("redirect");
+    return r && r.startsWith("/") && !r.startsWith("//") ? r : "/";
+  }
+
+  function setMode(m) {
+    mode = m;
+    $("tab-login").classList.toggle("active", m === "login");
+    $("tab-register").classList.toggle("active", m === "register");
+    $("submit").textContent = m === "login" ? "登录" : "注册并登录";
+    $("pw-hint").hidden = m === "login";
+    $("msg").replaceChildren();
+  }
+  $("tab-login").onclick = () => setMode("login");
+  $("tab-register").onclick = () => setMode("register");
+
+  $("form").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = { username: $("username").value.trim(), password: $("password").value };
+    try {
+      if (mode === "register") await api("POST", "/api/auth/register", body);
+      const r = await api("POST", "/api/auth/login", body);
+      Auth.save(r.accessToken, r.user);
+      location.href = redirectTarget();
+    } catch (err) {
+      $("msg").replaceChildren(errorBanner(err));
+    }
+  };
+
+  if (new URLSearchParams(location.search).get("redirect")?.startsWith("/survey/")) {
+    $("msg").replaceChildren(h("div", { class: "banner info" }, "该问卷需要登录后填写，登录后将自动返回问卷。"));
+  }
+</script>
+</body>
+</html>

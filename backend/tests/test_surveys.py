@@ -132,6 +132,13 @@ def test_settings_invalid(client, alice, patch):
     assert r.status_code == 422
 
 
+def test_settings_error_message_is_readable(client, alice):
+    s = create(client, alice)
+    r = client.put(f"/api/surveys/{s['id']}/settings", headers=alice,
+                   json={"requireLogin": False, "allowMultipleSubmit": False})
+    assert r.json()["details"][0]["message"] == "限制每人只能填写一次时，必须要求填写者登录"
+
+
 def test_guest_fill_allowed_only_with_multiple_submit(client, alice):
     s = create(client, alice)
     body = {"requireLogin": False, "allowMultipleSubmit": True}
