@@ -16,6 +16,7 @@ let survey = null;
 let byId = {};
 const answers = {};   // questionId → 答案
 const path = [];      // 已走过的题目，末尾为当前题
+let notice = null;    // 恢复进度等一次性提示，翻到下一题后消失
 
 // ---------- 页面骨架 ----------
 
@@ -28,9 +29,34 @@ function sheetHead() {
 }
 
 function previewBar() {
-  return PREVIEW ? h("div", { id: "msg" }, h("div", { class: "banner info" },
-    "预览模式：按跳转规则走一遍，答卷不会保存。",
-    h("a", { href: `/surveys/${key}/edit`, style: "margin-left:10px" }, "返回编辑"))) : null;
+  if (PREVIEW) {
+    return h("div", { id: "msg" }, h("div", { class: "banner info" },
+      "预览模式：按跳转规则走一遍，答卷不会保存。",
+      h("a", { href: `/surveys/${key}/edit`, style: "margin-left:10px" }, "返回编辑")));
+  }
+  return notice ? h("div", { id: "msg" }, notice) : null;
+}
+
+async function restart() {
+  await api("DELETE", `/api/public/surveys/${key}/draft`);
+  location.reload();
+}
+
+function restoreDraft(draft, discarded) {
+  if (discarded) {
+    notice = h("div", { class: "banner info" }, "问卷内容已更新，之前的进度已清空，请重新填写。");
+    return;
+  }
+  const progressed = draft && (draft.path.length > 1 || Object.keys(draft.answers).length);
+  if (!progressed) return;
+  const valid = draft.path.filter((id) => byId[id]);
+  if (!valid.length) return;
+  Object.assign(answers, draft.answers);
+  path.length = 0;
+  path.push(...valid);
+  notice = h("div", { class: "banner ok" },
+    `已恢复你 ${fmtTime(draft.lastVisitedAt)} 的填写进度。`,
+    h("button", { class: "small", style: "margin-left:10px", onclick: restart }, "重新开始"));
 }
 
 function statePage(title, text, ...extra) {
@@ -118,6 +144,7 @@ function showQuestion(qid, error) {
     try {
       const r = await api("POST", endpoints.next, { questionId: qid, value });
       answers[qid] = value;
+      notice = null;
       if (r.next === "END") showFinish();
       else { path.push(r.next); showQuestion(r.next); }
     } catch (err) {
@@ -197,22 +224,24 @@ function showDone(r) {
 
 // ---------- 入口 ----------
 
-function start() {
+function start(draft, discarded) {
   byId = Object.fromEntries(survey.questions.map((q) => [q.questionId, q]));
   document.title = survey.title;
   if (!survey.firstQuestionId) { statePage(survey.title, "这份问卷还没有题目。"); return; }
   path.push(survey.firstQuestionId);
-  showQuestion(survey.firstQuestionId);
+  restoreDraft(draft, discarded);
+  showQuestion(path[path.length - 1]);
 }
 
 async function init() {
   if (PREVIEW) requireLogin();
+  if (Auth.token() && !document.querySelector("header.nav")) renderNav();
   try {
     const data = await api("GET", endpoints.load);
     if (PREVIEW) { survey = data; start(); return; }
 
     survey = data.survey;
-    if (data.state === "ok") start();
+    if (data.state === "ok") start(data.draft, data.draftDiscarded);
     else if (data.state === "ended") statePage("问卷已结束", `「${survey.title}」${ENDED_TEXT[data.reason]}，不再接收新的答卷。`);
     else if (data.state === "already_submitted") statePage("你已提交过答卷", `「${survey.title}」每人只能填写一次。`);
     else if (data.state === "login_required") statePage(survey.title, "这份问卷需要登录后填写，登录后会自动回到这里。",

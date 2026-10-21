@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import Field
@@ -38,12 +39,22 @@ class PublicSurvey(ApiModel):
     questions: list[PublicQuestion]
 
 
+class DraftOut(ApiModel):
+    """上次的填写进度（P19）。path 末尾为下一道要答的题。"""
+
+    path: list[str]
+    answers: dict[str, Any]
+    last_visited_at: datetime
+
+
 class EntryOut(ApiModel):
     """填写入口（P12 / P13）：告诉前端该显示哪个页面。"""
 
     state: EntryState
     reason: EndedReason | None = None
     survey: PublicSurvey
+    draft: DraftOut | None = None
+    draft_discarded: bool = Field(default=False, description="问卷已被修改，上次的进度已作废")
 
 
 class NextIn(ApiModel):

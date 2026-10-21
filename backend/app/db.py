@@ -11,7 +11,7 @@ SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schema"
 
 SCHEMA_VERSION = 1
 
-COLLECTIONS = ("users", "surveys", "responses")
+COLLECTIONS = ("users", "surveys", "responses", "drafts")
 
 INDEXES: dict[str, list[IndexModel]] = {
     "users": [
@@ -35,7 +35,13 @@ INDEXES: dict[str, list[IndexModel]] = {
             partialFilterExpression={"singleSubmission": True},
             name="uniq_single_submission",
         ),
-        IndexModel([("respondentId", ASCENDING)], name="respondent", sparse=True),
+        IndexModel([("respondentId", ASCENDING), ("submittedAt", DESCENDING)], name="respondent_history"),
+    ],
+    "drafts": [
+        IndexModel([("userId", ASCENDING), ("surveyId", ASCENDING)], unique=True, name="uniq_user_survey"),
+        IndexModel([("userId", ASCENDING), ("lastVisitedAt", DESCENDING)], name="user_recent"),
+        IndexModel([("lastVisitedAt", ASCENDING)], name="ttl_last_visited",
+                   expireAfterSeconds=settings.draft_ttl_days * 86400),
     ],
 }
 
@@ -54,7 +60,7 @@ def get_db() -> Database:
     return get_client()[settings.mongo_db]
 
 
-_INDEX_OPTIONS = ("unique", "sparse", "partialFilterExpression")
+_INDEX_OPTIONS = ("unique", "sparse", "partialFilterExpression", "expireAfterSeconds")
 
 
 def _same_index(existing: dict, declared: dict) -> bool:

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的答卷 - 问卷系统</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<main class="narrow">
+  <div id="app"></div>
+</main>
+<script src="/static/api.js"></script>
+<script>
+  requireLogin();
+  renderNav();
+  const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const app = document.getElementById("app");
+
+  // 只读的答题卡：选中的选项涂黑，被跳过的题标注"未作答"
+  function item(it, n) {
+    let body;
+    if (!it.answered) {
+      body = h("p", { class: "muted" }, "未作答（被跳转跳过或选填未答）");
+    } else if (it.options) {
+      body = h("div", {}, it.options.map((o, i) => h("div", { class: "option" + (it.type === "multiple" ? " square" : "") },
+        h("input", { type: "checkbox", checked: o.chosen, disabled: true, tabindex: -1, "aria-hidden": "true" }),
+        h("span", { class: "mark", "aria-hidden": "true" }, LETTERS[i] || "", h("span", { class: "fillin" })),
+        h("span", { class: "text" }, o.text, o.chosen ? h("span", { class: "visually-hidden" }, "（已选）") : null))));
+    } else {
+      body = h("p", { class: "written" }, String(it.value));
+    }
+    return h("div", { class: "fill-question readonly" + (it.hidden ? " is-hidden" : "") },
+      h("h3", {}, h("span", { class: "qno" }, n), h("span", {}, it.title),
+        it.hidden ? h("span", { class: "badge hidden" }, "已删除") : null),
+      h("div", { class: "body" }, body));
+  }
+
+  async function load() {
+    try {
+      const r = await creatorCall("GET", `/api/me/responses/${pathParam(2)}`);
+      document.title = `我的答卷：${r.title}`;
+      mount(app,
+        h("div", { class: "sheet-head" }, h("h2", {}, r.title), h("p", {}, `你于 ${fmtTime(r.submittedAt)} 提交的答卷`)),
+        r.items.map((it, i) => item(it, i + 1)),
+        h("div", { class: "card row add-card" }, h("a", { href: "/#joined" }, "返回我参与的问卷")),
+      );
+    } catch (err) {
+      mount(app, h("div", { class: "sheet-note" }, h("h2", {}, "找不到这份答卷"),
+        h("p", {}, "只能查看自己提交的实名答卷；问卷被删除后答卷也无法查看。"),
+        h("div", { class: "row" }, h("a", { class: "btn", href: "/#joined" }, "返回我参与的问卷"))));
+    }
+  }
+  load();
+</script>
+</body>
+</html>

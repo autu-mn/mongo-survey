@@ -9,29 +9,37 @@
 <body>
 <main>
   <div class="card">
-    <h2>我的问卷</h2>
-    <div id="create-msg"></div>
-    <form id="create" class="row" style="margin-top:16px">
-      <input id="title" class="grow" type="text" placeholder="新问卷的标题，例如：食堂满意度调查" required maxlength="200" aria-label="问卷标题">
-      <input id="desc" class="grow" type="text" placeholder="说明（选填）" maxlength="5000" aria-label="问卷说明">
-      <button class="primary" type="submit">新建问卷</button>
-    </form>
+    <div class="title-row">
+      <h2>我的问卷</h2>
+      <span class="spacer"></span>
+      <div class="tabs home-tabs" role="tablist">
+        <button id="tab-created" role="tab">我创建的</button>
+        <button id="tab-joined" role="tab">我参与的</button>
+      </div>
+    </div>
+    <div id="created-head">
+      <div id="create-msg"></div>
+      <form id="create" class="row" style="margin-top:16px">
+        <input id="title" class="grow" type="text" placeholder="新问卷的标题，例如：食堂满意度调查" required maxlength="200" aria-label="问卷标题">
+        <input id="desc" class="grow" type="text" placeholder="说明（选填）" maxlength="5000" aria-label="问卷说明">
+        <button class="primary" type="submit">新建问卷</button>
+      </form>
+    </div>
   </div>
-  <div class="card" id="list"></div>
+  <div id="panel"></div>
 </main>
 <script src="/static/api.js"></script>
 <script>
   requireLogin();
   renderNav();
+  const $ = (id) => document.getElementById(id);
 
-  async function load() {
-    const list = document.getElementById("list");
+  async function loadCreated() {
     const surveys = await creatorCall("GET", "/api/surveys");
     if (!surveys.length) {
-      mount(list, h("p", { class: "muted" }, "还没有问卷。在上方填写标题，新建第一份。"));
-      return;
+      return h("div", { class: "card" }, h("p", { class: "muted" }, "还没有问卷。在上方填写标题，新建第一份。"));
     }
-    mount(list, h("table", {},
+    return h("div", { class: "card" }, h("table", {},
       h("thead", {}, h("tr", {},
         h("th", {}, "标题"), h("th", {}, "状态"), h("th", { class: "num" }, "答卷"),
         h("th", {}, "截止时间"), h("th", {}, "创建于"))),
@@ -45,20 +53,70 @@
     ));
   }
 
-  document.getElementById("create").onsubmit = async (e) => {
+  async function loadJoined() {
+    const { inProgress, submitted } = await creatorCall("GET", "/api/me/participations");
+    const progress = h("div", { class: "card" },
+      h("h3", { class: "section-title" }, "填写中"),
+      inProgress.length ? h("table", {}, h("tbody", {}, inProgress.map((d) => h("tr", {},
+        h("td", { class: "title" }, h("a", { href: `/survey/${d.slug}` }, d.title)),
+        h("td", {}, statusBadge(d.displayStatus)),
+        h("td", { class: "progress-cell", style: "width:30%" },
+          h("div", { class: "row", style: "gap:10px;flex-wrap:nowrap" },
+            h("div", { class: "bar-wrap", style: "max-width:140px" },
+              h("div", { class: "bar", style: `width:${d.totalQuestions ? d.answeredCount / d.totalQuestions * 100 : 0}%` })),
+            h("span", { class: "muted", style: "white-space:nowrap" }, `已答 ${d.answeredCount} 题`))),
+        h("td", { class: "muted hide-narrow" }, `${fmtTime(d.lastVisitedAt)} 访问`),
+        h("td", { class: "num" }, d.canContinue
+          ? h("a", { class: "btn primary", href: `/survey/${d.slug}` }, "继续填写")
+          : h("span", { class: "muted" }, "已不可填写")),
+      ))))
+        : h("p", { class: "muted" }, "没有填到一半的问卷。打开别人发来的问卷链接，答过的题会自动保存在这里。"));
+    const done = h("div", { class: "card" },
+      h("h3", { class: "section-title" }, "已提交"),
+      submitted.length ? h("table", {}, h("tbody", {}, submitted.map((r) => h("tr", {},
+        h("td", { class: "title" }, r.title),
+        h("td", {}, statusBadge(r.displayStatus)),
+        h("td", { class: "muted hide-narrow" }, `${fmtTime(r.submittedAt)} 提交`),
+        h("td", { class: "num" }, h("a", { class: "btn", href: `/me/responses/${r.responseId}` }, "查看我的答卷")),
+      ))))
+        : h("p", { class: "muted" }, "还没有提交过实名问卷。"),
+      h("p", { class: "muted", style: "margin:14px 0 0;font-size:var(--fs-0)" }, "匿名问卷提交后不会出现在这里，以保护你的匿名身份。"));
+    return [progress, done];
+  }
+
+  async function show(tab) {
+    $("tab-created").classList.toggle("active", tab === "created");
+    $("tab-joined").classList.toggle("active", tab === "joined");
+    $("tab-created").setAttribute("aria-selected", tab === "created");
+    $("tab-joined").setAttribute("aria-selected", tab === "joined");
+    $("created-head").hidden = tab !== "created";
+    history.replaceState(null, "", tab === "joined" ? "#joined" : location.pathname);
+    try {
+      mount($("panel"), await (tab === "joined" ? loadJoined() : loadCreated()));
+    } catch (err) {
+      mount($("panel"), h("div", { class: "card" }, errorBanner(err)));
+    }
+  }
+
+  $("tab-created").onclick = () => show("created");
+  $("tab-joined").onclick = () => show("joined");
+
+  $("create").onsubmit = async (e) => {
     e.preventDefault();
     try {
       const s = await creatorCall("POST", "/api/surveys", {
-        title: document.getElementById("title").value.trim(),
-        description: document.getElementById("desc").value.trim(),
+        title: $("title").value.trim(),
+        description: $("desc").value.trim(),
       });
       location.href = `/surveys/${s.id}/edit`;
     } catch (err) {
-      document.getElementById("create-msg").replaceChildren(errorBanner(err));
+      $("create-msg").replaceChildren(errorBanner(err));
     }
   };
 
-  load();
+  const fromHash = () => show(location.hash === "#joined" ? "joined" : "created");
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
 </script>
 </body>
 </html>

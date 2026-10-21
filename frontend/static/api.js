@@ -85,7 +85,8 @@ function renderNav() {
   const user = Auth.user();
   const nav = h("header", { class: "nav" },
     h("a", { class: "brand", href: "/" }, brandMark(), "问卷系统"),
-    h("a", { href: "/" }, "我的问卷"),
+    h("a", { href: "/" }, "我创建的"),
+    h("a", { href: "/#joined" }, "我参与的"),
     h("span", { class: "spacer" }),
     user ? h("span", { class: "who" }, user.username) : null,
     user ? h("a", { href: "#", onclick: (e) => { e.preventDefault(); Auth.clear(); location.href = "/login"; } }, "退出") : h("a", { href: loginUrl() }, "登录"),

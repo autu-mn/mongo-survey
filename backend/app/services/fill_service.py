@@ -9,8 +9,10 @@ from pymongo.errors import DuplicateKeyError
 from app.db import SCHEMA_VERSION
 from app.deps import CurrentUser
 from app.errors import AppError
-from app.models.public import EntryOut, NextIn, NextOut, PublicOption, PublicQuestion, PublicSurvey, SubmitIn, SubmitOut
+from app.models.public import (DraftOut, EntryOut, NextIn, NextOut, PublicOption, PublicQuestion,
+                               PublicSurvey, SubmitIn, SubmitOut)
 from app.models.survey import Completion
+from app.repositories import drafts as drafts_repo
 from app.repositories import responses as responses_repo
 from app.repositories import surveys as surveys_repo
 from app.security import submitter_key
@@ -88,10 +90,34 @@ def _raise_for_state(state: str, reason: str | None) -> None:
         raise AppError(409, "already_submitted", "你已经填写过该问卷")
 
 
+def _load_draft(db: Database, doc: dict, user: CurrentUser) -> tuple[DraftOut | None, bool]:
+    """P19 记录访问并读出进度。问卷版本变了或路径里有已隐藏的题，进度作废、从头开始。"""
+    first = logic_engine.first_question_id(doc)
+    if first == logic_engine.END:
+        return None, False
+    now = now_utc()
+    draft = drafts_repo.touch(db, user.id, doc, first, now)
+    visible = {q["questionId"] for q in logic_engine.visible_questions(doc)}
+    discarded = draft["surveyVersion"] != doc["version"] or not set(draft["path"]) <= visible
+    if discarded:
+        draft = drafts_repo.reset(db, user.id, doc, first, now)
+    answers = {k: v for k, v in draft["answers"].items() if k in visible}
+    return DraftOut(path=draft["path"], answers=answers, last_visited_at=draft["lastVisitedAt"]), discarded
+
+
 def entry(db: Database, slug: str, user: CurrentUser | None) -> EntryOut:
     doc = load_public(db, slug)
     state, reason = entry_state(db, doc, user, now_utc())
-    return EntryOut(state=state, reason=reason, survey=to_public(doc, include_questions=state == "ok"))
+    draft, discarded = (None, False)
+    if state == "ok" and user is not None:
+        draft, discarded = _load_draft(db, doc, user)
+    return EntryOut(state=state, reason=reason, survey=to_public(doc, include_questions=state == "ok"),
+                    draft=draft, draft_discarded=discarded)
+
+
+def discard_draft(db: Database, slug: str, user: CurrentUser) -> None:
+    """P21 "重新开始"。"""
+    drafts_repo.delete(db, user.id, load_public(db, slug)["_id"])
 
 
 def _load_fillable(db: Database, slug: str, user: CurrentUser | None) -> dict:
@@ -110,8 +136,15 @@ def _next(doc: dict, body: NextIn) -> NextOut:
 
 
 def next_question(db: Database, slug: str, user: CurrentUser | None, body: NextIn) -> NextOut:
-    """P14 只读问卷、不写库。"""
-    return _next(_load_fillable(db, slug, user), body)
+    """P14 计算下一题；登录用户顺带保存这一题的进度（P20）。"""
+    doc = _load_fillable(db, slug, user)
+    nxt, value, errors = logic_engine.evaluate(doc, body.question_id, body.value)
+    if errors:
+        raise AppError(422, "invalid_answer", errors[0]["message"], errors)
+    if user is not None:
+        drafts_repo.save_step(db, user.id, doc, body.question_id, value,
+                              None if nxt == logic_engine.END else nxt, now_utc())
+    return NextOut(next=nxt)
 
 
 def submit(db: Database, slug: str, user: CurrentUser | None, body: SubmitIn) -> SubmitOut:
@@ -149,6 +182,9 @@ def submit(db: Database, slug: str, user: CurrentUser | None, body: SubmitIn) ->
     except Exception:
         surveys_repo.release_slot(db, doc["_id"])
         raise
+
+    if user is not None:
+        drafts_repo.delete(db, user.id, doc["_id"])
 
     return SubmitOut(
         response_id=str(response_id),

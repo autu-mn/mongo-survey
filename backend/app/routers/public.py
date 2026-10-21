@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.deps import DB, OptionalUser, RequiredUser
 from app.models.public import EntryOut, NextIn, NextOut, PublicSurvey, SubmitIn, SubmitOut
@@ -22,6 +22,12 @@ def next_question(slug: str, body: NextIn, user: OptionalUser, db: DB):
 @router.post("/responses", response_model=SubmitOut, status_code=201, summary="提交答卷（P15）")
 def submit(slug: str, body: SubmitIn, user: OptionalUser, db: DB):
     return fill_service.submit(db, slug, user, body)
+
+
+@router.delete("/draft", status_code=204, summary="丢弃填写进度，重新开始（P21）")
+def discard_draft(slug: str, user: RequiredUser, db: DB):
+    fill_service.discard_draft(db, slug, user)
+    return Response(status_code=204)
 
 
 @preview_router.get("", response_model=PublicSurvey, summary="预览（P9，草稿也可以）")

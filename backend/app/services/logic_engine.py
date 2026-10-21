@@ -102,15 +102,21 @@ def check_one(q: dict, raw) -> tuple[object, str | None]:
     return validate_answer(q, raw)
 
 
-def step(survey: dict, qid: str, raw) -> tuple[str | None, list[dict]]:
-    """填写页点"下一题"：校验当前题并给出下一题。返回 (下一题 ID 或 END, 错误列表)。"""
+def evaluate(survey: dict, qid: str, raw) -> tuple[str | None, object, list[dict]]:
+    """校验当前题并给出下一题。返回 (下一题 ID 或 END, 规范化后的答案, 错误列表)。"""
     q = find_visible(survey, qid)
     if q is None:
-        return None, [{"questionId": qid, "message": "题目不存在"}]
+        return None, None, [{"questionId": qid, "message": "题目不存在"}]
     value, err = check_one(q, raw)
     if err:
-        return None, [{"questionId": qid, "message": err}]
-    return next_question_id(survey, q, value), []
+        return None, None, [{"questionId": qid, "message": err}]
+    return next_question_id(survey, q, value), value, []
+
+
+def step(survey: dict, qid: str, raw) -> tuple[str | None, list[dict]]:
+    """填写页点"下一题"：返回 (下一题 ID 或 END, 错误列表)。"""
+    nxt, _, errors = evaluate(survey, qid, raw)
+    return nxt, errors
 
 
 def replay(survey: dict, raw_answers: dict) -> ReplayResult:

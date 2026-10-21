@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db import get_db, init_db
 from app.errors import register_error_handlers
-from app.routers import auth, public, questions, stats, surveys
+from app.routers import auth, me, public, questions, stats, surveys
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 PAGES_DIR = FRONTEND_DIR / "pages"
@@ -27,6 +27,7 @@ app.include_router(questions.router)
 app.include_router(public.router)
 app.include_router(public.preview_router)
 app.include_router(stats.router)
+app.include_router(me.router)
 
 
 @app.get("/health")
@@ -47,6 +48,7 @@ PAGE_ROUTES = {
     "/surveys/{survey_id}/share": "share.html",
     "/surveys/{survey_id}/stats": "stats.html",
     "/survey/{slug}": "fill.html",             # 填写者入口
+    "/me/responses/{response_id}": "myresponse.html",  # 我的答卷（只读）
 }
 
 

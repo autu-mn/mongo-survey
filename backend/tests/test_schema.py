@@ -227,7 +227,7 @@ def test_init_db_is_idempotent_and_drops_stale_index(db):
     names = {ix["name"] for ix in db.surveys.list_indexes()}
     assert names == {"_id_", "uniq_slug", "owner_active_list"}
     names = {ix["name"] for ix in db.responses.list_indexes()}
-    assert {"survey_responses", "uniq_single_submission", "respondent"} <= names
+    assert {"survey_responses", "uniq_single_submission", "respondent_history"} <= names
 
 
 def test_init_db_rebuilds_index_whose_definition_changed(db):

@@ -83,10 +83,17 @@ def find_owned(db: Database, survey_id: ObjectId, owner_id: ObjectId,
 
 def update_owned(db: Database, survey_id: ObjectId, owner_id: ObjectId,
                  update: dict, extra_filter: dict | None = None) -> dict | None:
-    """带条件的原子更新；条件不满足返回 None。"""
+    """带条件的原子更新；条件不满足返回 None。只支持 $set 与 $inc。
+
+    updatedAt 是编辑页的乐观锁，必须每次更新都严格变大：同一毫秒内的两次保存若得到相同的
+    updatedAt，持有旧值的窗口就能绕过冲突检测。因此用管道更新取 max(当前时间, 旧值 + 1 毫秒)。
+    所有写入的值都用 $literal 包裹，避免以 $ 开头的文本（如题目标题）被当成字段引用。
+    """
     flt = _owned(survey_id, owner_id) | (extra_filter or {})
-    update.setdefault("$set", {})["updatedAt"] = _now()
-    return db.surveys.find_one_and_update(flt, update, return_document=ReturnDocument.AFTER)
+    fields = {k: {"$literal": v} for k, v in update.get("$set", {}).items()}
+    fields |= {k: {"$add": [f"${k}", n]} for k, n in update.get("$inc", {}).items()}
+    fields["updatedAt"] = {"$max": [_now(), {"$add": ["$updatedAt", 1]}]}
+    return db.surveys.find_one_and_update(flt, [{"$set": fields}], return_document=ReturnDocument.AFTER)
 
 
 def set_settings(db: Database, survey_id: ObjectId, owner_id: ObjectId,

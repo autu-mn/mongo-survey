@@ -1,0 +1,24 @@
+{
+  "bsonType": "object",
+  "title": "drafts",
+  "required": ["userId", "surveyId", "surveyVersion", "answers", "path", "createdAt", "lastVisitedAt", "schemaVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "userId": { "bsonType": "objectId", "description": "填写人 users._id；只有登录用户才保存进度" },
+    "surveyId": { "bsonType": "objectId" },
+    "surveyVersion": { "bsonType": "int", "minimum": 1, "description": "保存进度时的问卷版本，版本变化后进度作废" },
+    "answers": {
+      "bsonType": "object",
+      "description": "questionId → 规范化后的答案；键为题目 ID，值的类型随题型变化"
+    },
+    "path": {
+      "bsonType": "array",
+      "items": { "bsonType": "string" },
+      "description": "服务端按跳转规则算出的路径，末尾为下一道要答的题"
+    },
+    "createdAt": { "bsonType": "date" },
+    "lastVisitedAt": { "bsonType": "date", "description": "上次访问时间；TTL 索引按它自动删除过期进度" },
+    "schemaVersion": { "bsonType": "int", "minimum": 1 }
+  }
+}

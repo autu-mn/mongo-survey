@@ -183,6 +183,28 @@ def test_optimistic_lock(client, alice):
     assert r.status_code == 201
 
 
+def test_optimistic_lock_within_same_millisecond(client, alice, monkeypatch):
+    """时钟停在同一毫秒：updatedAt 仍必须严格变大，否则旧窗口可以绕过冲突检测。"""
+    from datetime import datetime, timezone
+    from app.repositories import surveys as surveys_repo
+    frozen = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr(surveys_repo, "_now", lambda: frozen)
+    s = create_survey(client, alice)
+    stale = s["updatedAt"]
+    r1 = client.post(f"/api/surveys/{s['id']}/questions", json=text("Q1"), headers={**alice, "If-Match": stale})
+    assert r1.status_code == 201 and r1.json()["updatedAt"] != stale
+    r2 = client.post(f"/api/surveys/{s['id']}/questions", json=text("Q2"), headers={**alice, "If-Match": stale})
+    assert r2.status_code == 409
+
+
+def test_title_starting_with_dollar_is_stored_literally(client, alice):
+    s = create_survey(client, alice)
+    r = client.patch(f"/api/surveys/{s['id']}", json={"title": "$version"}, headers=alice)
+    assert r.json()["title"] == "$version"
+    r = client.post(f"/api/surveys/{s['id']}/questions", json=text("$title"), headers=alice)
+    assert r.json()["questions"][0]["title"] == "$title"
+
+
 def test_patch_title(client, alice):
     s = create_survey(client, alice)
     r = client.patch(f"/api/surveys/{s['id']}", json={"title": "新标题", "description": "新说明"}, headers=alice)

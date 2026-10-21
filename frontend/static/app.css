@@ -110,7 +110,8 @@ table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-weight: 500; font-size: var(--fs-0); color: var(--graphite-3); padding: 0 12px 8px; border-bottom: 2px solid var(--print); }
 td { padding: 14px 12px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
 tbody tr:hover { background: #fafbfc; }
-td.title a { font-family: var(--font-paper); font-size: var(--fs-2); font-weight: 700; color: var(--graphite); }
+td.title { font-family: var(--font-paper); font-size: var(--fs-2); font-weight: 700; }
+td.title a { color: var(--graphite); }
 td.num { text-align: right; }
 
 /* ---------- 状态印章与标签 ---------- */
@@ -191,6 +192,12 @@ details summary { cursor: pointer; color: var(--ink); margin-top: 10px; }
 
 /* ---------- 登录页 ---------- */
 
+button, .btn { white-space: nowrap; }
+td.title { min-width: 8em; }
+.home-tabs { margin: 0; min-width: 220px; }
+.section-title { font-size: var(--fs-2); margin-bottom: 10px; }
+#panel .card { border-top: 1px solid var(--rule); }
+
 main.auth { max-width: 420px; margin-top: 9vh; }
 .brand-title { display: flex; align-items: center; justify-content: center; gap: 12px; }
 .brand-title .brand-mark i { width: 12px; height: 20px; border-width: 2px; }
@@ -252,6 +259,14 @@ main.auth { max-width: 420px; margin-top: 9vh; }
 .fill-question .counter { display: block; margin-top: 4px; text-align: right; font-size: var(--fs-0); color: var(--graphite-3); }
 .actions { display: flex; gap: 10px; justify-content: space-between; margin: 26px 0 0 42px; }
 
+.fill-question.readonly { padding-left: 36px; border-bottom: 1px solid var(--rule); }
+.fill-question.readonly .option { cursor: default; }
+.fill-question.readonly .option:hover { background: none; }
+.fill-question.readonly .option input:checked + .mark .fillin { transition: none; }
+.fill-question.readonly.is-hidden { background: repeating-linear-gradient(135deg, #fafbfc 0 10px, #f3f4f6 10px 20px); }
+.written { font-family: var(--font-paper); font-size: var(--fs-2); border-bottom: 1px solid var(--graphite-3); display: inline-block; min-width: 12em; padding-bottom: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
 .sheet-note { padding: 40px; text-align: center; }
 .sheet-note h2 { font-size: var(--fs-4); }
 .sheet-note p { margin: 0 auto 18px; }
@@ -273,5 +288,6 @@ main.auth { max-width: 420px; margin-top: 9vh; }
   .sheet-head { padding: 26px 18px 18px; }
   .kv { grid-template-columns: 6em 1fr; }
   .fsec { grid-template-columns: 1fr; gap: 8px; }
+  .progress-cell .bar-wrap, .hide-narrow { display: none; }
   .stat-table td:nth-child(2) { display: none; }
 }

@@ -5,7 +5,9 @@ import pytest
 from app.main import PAGE_ROUTES
 
 
-@pytest.mark.parametrize("path", [p.replace("{survey_id}", "abc").replace("{slug}", "xyz") for p in PAGE_ROUTES])
+@pytest.mark.parametrize("path", [
+    p.replace("{survey_id}", "abc").replace("{slug}", "xyz").replace("{response_id}", "r1") for p in PAGE_ROUTES
+])
 def test_page_routes_serve_html(client, path):
     r = client.get(path)
     assert r.status_code == 200

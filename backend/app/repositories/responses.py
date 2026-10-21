@@ -63,6 +63,27 @@ def aggregate_stats(db: Database, survey_id: ObjectId, question_id: str | None =
     return next(db.responses.aggregate(stats_pipeline(survey_id, question_id)))
 
 
+def list_mine_with_surveys(db: Database, user_id: ObjectId, limit: int = 50) -> list[dict]:
+    """P23 我参与的问卷（已提交）：只查实名答卷（匿名答卷 respondentId 为 null），走 respondent_history 索引。"""
+    return list(db.responses.aggregate([
+        {"$match": {"respondentId": user_id}},
+        {"$sort": {"submittedAt": -1}},
+        {"$limit": limit},
+        {"$project": {"surveyId": 1, "submittedAt": 1}},
+        {"$lookup": {
+            "from": "surveys", "localField": "surveyId", "foreignField": "_id", "as": "survey",
+            "pipeline": [{"$match": {"deletedAt": None}},
+                         {"$project": {"title": 1, "slug": 1, "status": 1, "settings": 1, "responseCount": 1}}],
+        }},
+        {"$unwind": "$survey"},
+    ]))
+
+
+def find_mine(db: Database, response_id: ObjectId, user_id: ObjectId) -> dict | None:
+    """查看我的答卷：条件中带 respondentId，别人的或匿名的答卷都查不到。"""
+    return db.responses.find_one({"_id": response_id, "respondentId": user_id})
+
+
 def iter_for_export(db: Database, survey_id: ObjectId, batch_size: int = 500):
     """P18 导出：游标按提交时间顺序分批读取，不把全部答卷一次装入内存。
     同一毫秒提交的答卷 submittedAt 相同，用 _id 作为第二排序键保证顺序稳定。"""

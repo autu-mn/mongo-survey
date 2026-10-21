@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     bcrypt_rounds: int = 12
     hmac_secret: str = "change-me-hmac-secret"
+    draft_ttl_days: int = 30
 
 
 settings = Settings()
