@@ -228,3 +228,12 @@ def test_init_db_is_idempotent_and_drops_stale_index(db):
     assert names == {"_id_", "uniq_slug", "owner_active_list"}
     names = {ix["name"] for ix in db.responses.list_indexes()}
     assert {"survey_responses", "uniq_single_submission", "respondent"} <= names
+
+
+def test_init_db_rebuilds_index_whose_definition_changed(db):
+    from app.db import init_db
+    db.responses.drop_index("survey_responses")
+    db.responses.create_index([("surveyId", 1), ("submittedAt", -1)], name="survey_responses")
+    init_db(db)
+    ix = next(i for i in db.responses.list_indexes() if i["name"] == "survey_responses")
+    assert list(ix["key"].items()) == [("surveyId", 1), ("submittedAt", 1), ("_id", 1)]
