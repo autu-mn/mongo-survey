@@ -28,6 +28,13 @@
     }
   }
 
+  async function copyAsDraft() {
+    try {
+      const draft = await creatorCall("POST", `/api/surveys/${id}/copy`);
+      location.href = `/surveys/${draft.id}/edit`;
+    } catch (err) { flash(msg, errorBanner(err), 0); }
+  }
+
   function render(s) {
     const link = surveyLink(s.slug);
     const st = s.status;
@@ -55,7 +62,8 @@
         ),
       ),
       h("div", { class: "card row" },
-        h("a", { class: "btn primary", href: `/surveys/${id}/edit` }, "编辑题目"),
+        h("a", { class: "btn primary", href: `/surveys/${id}/edit` }, st === "draft" ? "编辑题目" : "查看题目"),
+        h("button", { onclick: copyAsDraft }, "复制为新草稿"),
         h("a", { class: "btn", href: `/surveys/${id}/preview` }, "预览"),
         h("a", { class: "btn", href: `/surveys/${id}/share` }, st === "draft" ? "发布" : "分享设置"),
         h("a", { class: "btn", href: `/surveys/${id}/stats` }, "查看统计"),
@@ -73,6 +81,11 @@
           },
         }, "删除问卷"),
       ),
+      s.questions.some((q) => q.sourceItemId) ? h("div", { class: "card" },
+        h("h3", {}, "题目来源"), s.questions.map((q) => h("p", {},
+          `第 ${q.order} 题：${q.title} `,
+          q.sourceItemId ? h("a", { href: `/questions/${q.sourceItemId}` }, "查看版本与引用")
+            : h("span", { class: "muted" }, "尚未保存为独立题目")))) : null,
     );
   }
 

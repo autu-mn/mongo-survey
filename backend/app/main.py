@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db import get_db, init_db
 from app.errors import register_error_handlers
-from app.routers import auth, me, public, questions, stats, surveys
+from app.routers import auth, me, public, question_banks, question_items, questions, stats, surveys
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 PAGES_DIR = FRONTEND_DIR / "pages"
@@ -24,6 +24,8 @@ register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(surveys.router)
 app.include_router(questions.router)
+app.include_router(question_items.router)  # 【第二阶段新增】P24–P28
+app.include_router(question_banks.router)  # 【第二阶段新增】P29
 app.include_router(public.router)
 app.include_router(public.preview_router)
 app.include_router(stats.router)
@@ -49,6 +51,9 @@ PAGE_ROUTES = {
     "/surveys/{survey_id}/stats": "stats.html",
     "/survey/{slug}": "fill.html",             # 填写者入口
     "/me/responses/{response_id}": "myresponse.html",  # 我的答卷（只读）
+    "/question-banks": "question-banks.html",          # 【第二阶段新增】题库与共享浏览
+    "/question-banks/{bank_id}": "question-bank.html",
+    "/questions/{item_id}": "question-item.html",       # 版本、共享、引用、跨卷统计
 }
 
 

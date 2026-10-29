@@ -6,6 +6,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+# 【第二阶段新增】本机 MongoDB BSON 备份可能包含用户和答卷，不纳入仓库
+backups/
 .idea/
 .vscode/
 大作业一.md
+大作业一：需求变更*.md

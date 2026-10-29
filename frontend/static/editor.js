@@ -5,6 +5,7 @@ renderNav();
 
 const surveyId = pathParam(1);
 const msg = document.getElementById("msg");
+const picker = document.getElementById("picker"); // 【第二阶段新增】编辑页内选版/收录面板
 let survey = null;
 
 const OPS = {
@@ -33,6 +34,94 @@ const isLocked = () => survey.status !== "draft";
 const sorted = () => [...survey.questions].sort((a, b) => a.order - b.order);
 const label = (q) => `第 ${q.order} 题：${q.title}${q.hidden ? "（已隐藏）" : ""}`;
 
+async function copyAsDraft() {
+  try { const draft = await creatorCall("POST", `${base()}/copy`); location.href = `/surveys/${draft.id}/edit`; }
+  catch (err) { flash(msg, errorBanner(err), 0); }
+}
+
+async function saveToLibrary(q) {
+  try {
+    const banks = await creatorCall("GET", "/api/question-banks");
+    const bank = h("select", { "aria-label": "选择题库" },
+      h("option", { value: "" }, "只保存题目，暂不加入题库"),
+      banks.map((b) => h("option", { value: b.id }, b.name)));
+    mount(picker, h("div", { class: "card picker-card" },
+      h("div", { class: "title-row" }, h("h3", {}, `保存“${q.title}”`),
+        h("span", { class: "spacer" }), h("button", { class: "small", onclick: () => picker.replaceChildren() }, "关闭")),
+      h("p", { class: "muted" }, q.sourceItemId ? "此题已有来源；可将原题收录到所选题库。" : "按当前内容创建独立题目和首版，不修改本题正文。"),
+      h("div", { class: "row" }, bank, h("button", { class: "primary", onclick: async () => {
+        try {
+          const data = await creatorCall("POST", `${base()}/questions/${q.questionId}/save-to-library`,
+            bank.value ? { bankId: bank.value } : {}, { "If-Match": survey.updatedAt });
+          survey = data.survey;
+          picker.replaceChildren(); render();
+          flash(msg, h("div", { class: "banner ok" }, "已保存。", " ",
+            h("a", { href: `/questions/${data.itemId}` }, "查看题目版本")), 0);
+        } catch (err) { flash(msg, errorBanner(err), 0); }
+      } }, "保存到题库"))));
+    picker.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) { flash(msg, errorBanner(err), 0); }
+}
+
+async function openPicker(replaceQuestionId = null) {
+  try {
+    const [banks, mine, shared] = await Promise.all([
+      creatorCall("GET", "/api/question-banks"), creatorCall("GET", "/api/question-items?scope=mine&limit=100"),
+      creatorCall("GET", "/api/question-items?scope=shared&limit=100"),
+    ]);
+    const scope = h("select", { "aria-label": "选择题库或共享范围" },
+      h("option", { value: "mine" }, "我创建的题目"), h("option", { value: "shared" }, "共享给我的题目"),
+      banks.map((b) => h("option", { value: b.id }, `题库：${b.name}`)));
+    const item = h("select", { "aria-label": "选择题目" });
+    const version = h("select", { "aria-label": "选择具体版本" });
+    const preview = h("div", { class: "version-preview" });
+    let currentVersions = [];
+    const refreshVersion = () => {
+      const selected = currentVersions.find((v) => v.id === version.value);
+      mount(preview, selected ? [h("strong", {}, selected.content.title),
+        h("p", { class: "muted" }, `v${selected.versionNo} · 父版本 ${selected.parentVersionId || "无"}`),
+        h("p", {}, TYPE_TEXT[selected.content.type], selected.content.required ? " · 必答" : ""),
+        selected.content.options.length ? h("p", {}, selected.content.options.map((o) => o.text).join(" / ")) : null]
+        : h("p", { class: "muted" }, "请选择题目和版本。"));
+    };
+    const refreshItem = async () => {
+      if (!item.value) { currentVersions = []; mount(version); refreshVersion(); return; }
+      try {
+        currentVersions = await creatorCall("GET", `/api/question-items/${item.value}/versions`);
+        mount(version, currentVersions.map((v) => h("option", { value: v.id,
+          selected: v.id === currentVersions.at(-1).id }, `v${v.versionNo} · ${v.content.title}`)));
+        refreshVersion();
+      } catch (err) { mount(preview, errorBanner(err)); }
+    };
+    const refreshScope = async () => {
+      let options = scope.value === "mine" ? mine : scope.value === "shared" ? shared : null;
+      if (!options) {
+        const bank = await creatorCall("GET", `/api/question-banks/${scope.value}`);
+        options = bank.items.filter((member) => member.available).map((member) => member.item);
+      }
+      mount(item, options.length ? options.map((q) => h("option", { value: q.id },
+        q.latestVersion?.content.title || q.id)) : h("option", { value: "" }, "此范围暂无可选题目"));
+      await refreshItem();
+    };
+    scope.addEventListener("change", () => refreshScope().catch((err) => mount(preview, errorBanner(err))));
+    item.addEventListener("change", refreshItem);
+    version.addEventListener("change", refreshVersion);
+    mount(picker, h("div", { class: "card picker-card" },
+      h("div", { class: "title-row" }, h("h3", {}, replaceQuestionId ? "替换为具体版本" : "从题库选题"),
+        h("span", { class: "spacer" }), h("button", { class: "small", onclick: () => picker.replaceChildren() }, "关闭")),
+      h("p", { class: "muted" }, "选择题目后还需确认具体版本。撤销共享后不能新选用；已发布问卷须先复制为草稿。"),
+      h("div", { class: "row" }, scope, item, version), preview,
+      h("button", { class: "primary", onclick: async () => {
+        if (!version.value) return;
+        const method = replaceQuestionId ? "PUT" : "POST";
+        const path = replaceQuestionId ? `${base()}/questions/${replaceQuestionId}/from-library` : `${base()}/questions/from-library`;
+        if (await edit(method, path, { versionId: version.value }, "选定版本已加入问卷")) picker.replaceChildren();
+      } }, replaceQuestionId ? "替换本题版本" : "加入问卷")));
+    await refreshScope();
+    picker.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) { flash(msg, errorBanner(err), 0); }
+}
+
 // ---------- 基本信息 ----------
 
 function basicInfoCard() {
@@ -46,7 +135,8 @@ function basicInfoCard() {
       h("a", { href: `/surveys/${surveyId}` }, "返回管理页"),
     ),
     isLocked() ? h("div", { class: "banner info", style: "margin:14px 0 0" },
-      "问卷已发布：删除题目或选项会改为隐藏，统计中仍保留它们的历史数据；题型不能再修改。") : null,
+      "问卷已发布或关闭：题目、选项、顺序与跳转规则均已冻结。需要改题请复制为新草稿。",
+      h("button", { class: "small", style: "margin-left:10px", onclick: copyAsDraft }, "复制为新草稿")) : null,
     h("div", { class: "col", style: "margin-top:18px" }, h("label", {}, "标题"), title),
     h("div", { class: "col" }, h("label", {}, "说明"), desc),
     h("button", { onclick: () => edit("PATCH", base(), { title: title.value.trim(), description: desc.value }, "标题和说明已保存") }, "保存标题和说明"),
@@ -54,6 +144,34 @@ function basicInfoCard() {
 }
 
 // ---------- 题目卡片 ----------
+
+function snapshotCard(q, index, list, locked) {
+  const move = (delta) => {
+    const ids = list.map((x) => x.questionId);
+    [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
+    edit("PUT", `${base()}/questions/order`, { questionIds: ids }, "顺序已调整");
+  };
+  return h("div", { class: "card question-card" + (q.hidden ? " is-hidden" : "") },
+    h("div", { class: "head" }, h("span", { class: "qno" }, q.order),
+      h("strong", {}, q.title), h("span", { class: "tag" }, TYPE_TEXT[q.type]),
+      q.hidden ? h("span", { class: "badge hidden" }, "已隐藏") : null,
+      h("span", { class: "spacer" }),
+      !locked ? h("button", { class: "small", disabled: index === 0, onclick: () => move(-1) }, "上移") : null,
+      !locked ? h("button", { class: "small", disabled: index === list.length - 1, onclick: () => move(1) }, "下移") : null,
+      !locked ? h("button", { class: "small danger", onclick: () => confirm("确定删除该题？")
+        && edit("DELETE", `${base()}/questions/${q.questionId}`, undefined, "已删除") }, "删除") : null),
+    q.description ? h("p", { class: "muted" }, q.description) : null,
+    q.required ? h("p", { class: "muted" }, "必答") : null,
+    q.options.length ? h("ol", {}, q.options.map((o) => h("li", {}, o.text, o.hidden ? "（已隐藏）" : ""))) : null,
+    h("div", { class: "row" },
+      q.sourceItemId ? h("a", { href: `/questions/${q.sourceItemId}` }, "查看题目版本") : null,
+      q.sourceVersionId ? h("span", { class: "muted" }, `来源版本：${q.sourceVersionId}`) : null,
+      !locked ? h("button", { class: "small", onclick: () => openPicker(q.questionId) }, "替换为选定版本") : null,
+      h("button", { class: "small", onclick: () => saveToLibrary(q) }, "保存到题库")),
+    !locked && q.type in OPS ? logicBox(q) : null,
+    locked && q.logic?.length ? h("p", { class: "muted" }, `跳转规则 ${q.logic.length} 条，已冻结。`) : null,
+  );
+}
 
 function constraintInputs(type, c) {
   const num = (key, text, attrs = {}) => {
@@ -99,6 +217,7 @@ function optionEditor(q) {
 }
 
 function questionCard(q, index, list) {
+  if (isLocked() || q.sourceVersionId) return snapshotCard(q, index, list, isLocked());
   const typeSel = h("select", { disabled: isLocked() },
     Object.entries(TYPE_TEXT).map(([k, v]) => h("option", { value: k, selected: k === q.type }, v)));
   const title = h("input", { type: "text", class: "grow q-title", value: q.title, maxlength: 500, "aria-label": "题目标题" });
@@ -146,7 +265,9 @@ function questionCard(q, index, list) {
     h("div", { class: "row", style: "margin-top:8px" }, desc, h("label", {}, required, " 必答")),
     options ? h("div", { style: "margin-top:10px" }, options.node) : null,
     consBox.children.length ? h("div", { style: "margin-top:6px" }, consBox) : null,
-    h("div", { style: "margin-top:10px" }, h("button", { class: "primary", onclick: save }, "保存本题")),
+    h("div", { class: "row", style: "margin-top:10px" },
+      h("button", { class: "primary", onclick: save }, "保存本题"),
+      h("button", { onclick: () => saveToLibrary(q) }, "保存到题库")),
     q.type in OPS ? logicBox(q) : h("p", { class: "muted", style: "margin:16px 0 0;font-size:var(--fs-0)" }, "文本填空题没有跳转，答完按顺序进入下一题。"),
   );
 }
@@ -224,7 +345,8 @@ function addQuestionCard() {
     edit("POST", `${base()}/questions`, body, "题目已添加");
   };
   return h("div", { class: "card add-card" }, h("h3", { style: "font-size:var(--fs-2)" }, "添加题目"),
-    h("div", { class: "row" }, typeSel, title, h("button", { class: "primary", onclick: add }, "添加题目")),
+    h("div", { class: "row" }, typeSel, title, h("button", { class: "primary", onclick: add }, "添加题目"),
+      h("button", { onclick: () => openPicker() }, "从题库选题")),
     h("p", { class: "muted", style: "margin:10px 0 0;font-size:var(--fs-0)" }, "选择题会先带两个选项，添加后在题目里修改。"));
 }
 
@@ -234,7 +356,7 @@ function render() {
     basicInfoCard(),
     list.length ? list.map((q, i) => questionCard(q, i, list))
       : h("div", { class: "card" }, h("p", { class: "muted" }, "还没有题目。在下方选择题型、填写题目，添加第一题。")),
-    addQuestionCard(),
+    !isLocked() ? addQuestionCard() : null,
   );
 }
 

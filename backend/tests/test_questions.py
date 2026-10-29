@@ -1,4 +1,4 @@
-"""编辑页 API 测试：题目增删改、排序、发布后隐藏、跳转规则、version、乐观锁。"""
+"""编辑页 API 测试：草稿题目编辑、发布冻结、跳转规则、version、乐观锁。"""
 
 import pytest
 
@@ -127,44 +127,37 @@ def test_draft_option_removal_drops_rules_using_it(client, alice):
     assert [x["when"]["value"] for x in new_q1["logic"]] == [opt(q1, "女")]
 
 
-def test_published_delete_becomes_hidden_and_restore(client, alice):
+def test_published_delete_and_restore_rejected(client, alice):
     s, qs = build_demo_survey(client, alice)
-    v = s["version"]
     r = client.delete(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}", headers=alice)
-    q4 = r.json()["questions"][3]
-    assert q4["hidden"] is True and r.json()["questionCount"] == 3 and r.json()["version"] == v + 1
+    assert r.status_code == 409 and r.json()["code"] == "published_question_locked"
     r = client.post(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}/restore", headers=alice)
-    assert r.json()["questions"][3]["hidden"] is False
+    assert r.status_code == 409 and r.json()["code"] == "published_question_locked"
 
 
-def test_published_option_removal_becomes_hidden(client, alice):
+def test_published_option_removal_rejected(client, alice):
     s, qs = build_demo_survey(client, alice)
     q2 = qs["q2"]
     keep = [{"optionId": o["optionId"], "text": o["text"]} for o in q2["options"] if o["text"] != "西瓜"]
     body = {"type": "multiple", "title": "你喜欢的水果（改）", "required": True, "options": keep,
             "constraints": {"minSelect": 2, "maxSelect": 3}}
     r = client.put(f"/api/surveys/{s['id']}/questions/{q2['questionId']}", json=body, headers=alice)
-    assert r.status_code == 200, r.text
-    new_q2 = r.json()["questions"][1]
-    watermelon = next(o for o in new_q2["options"] if o["text"] == "西瓜")
-    assert watermelon["hidden"] is True and watermelon["optionId"] == opt(q2, "西瓜")
-    assert r.json()["version"] == s["version"] + 1
+    assert r.status_code == 409 and r.json()["code"] == "published_question_locked"
 
 
-def test_published_text_only_edit_does_not_bump_version(client, alice):
+def test_published_text_only_edit_rejected(client, alice):
     s, qs = build_demo_survey(client, alice)
     q3 = qs["q3"]
     body = {"type": "number", "title": "您的年龄（周岁）", "required": True, "constraints": q3["constraints"]}
     r = client.put(f"/api/surveys/{s['id']}/questions/{q3['questionId']}", json=body, headers=alice)
-    assert r.json()["version"] == s["version"]
-    assert r.json()["questions"][2]["title"] == "您的年龄（周岁）"
+    assert r.status_code == 409 and r.json()["code"] == "published_question_locked"
 
 
 def test_published_type_change_rejected(client, alice):
     s, qs = build_demo_survey(client, alice)
     r = client.put(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}", headers=alice,
                    json=number("改成数字"))
-    assert r.status_code == 409 and r.json()["code"] == "type_locked"
+    assert r.status_code == 409 and r.json()["code"] == "published_question_locked"
 
 
 def test_draft_type_change_clears_logic(client, alice):

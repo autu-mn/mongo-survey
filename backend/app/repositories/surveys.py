@@ -1,3 +1,4 @@
+import copy
 import secrets
 import string
 from datetime import datetime, timezone
@@ -67,6 +68,26 @@ def insert_survey(db: Database, owner_id: ObjectId, title: str, description: str
     raise RuntimeError("无法生成不重复的问卷链接")
 
 
+def copy_as_draft(db: Database, source: dict) -> dict:
+    """【第二阶段新增】复制问卷快照、规则和来源，不复制答卷与发布状态。"""
+    now = _now()
+    doc = copy.deepcopy(source)
+    doc.pop("_id", None)
+    doc.update(status="draft", publishedAt=None, closedAt=None, deletedAt=None,
+               responseCount=0, version=1, createdAt=now, updatedAt=now,
+               schemaVersion=SCHEMA_VERSION)
+    for _ in range(SLUG_MAX_ATTEMPTS):
+        doc["slug"] = generate_slug()
+        doc.pop("_id", None)
+        try:
+            doc["_id"] = db.surveys.insert_one(doc).inserted_id
+            return doc
+        except DuplicateKeyError as e:
+            if "slug" not in (e.details or {}).get("keyPattern", {}):
+                raise
+    raise RuntimeError("无法生成不重复的问卷链接")
+
+
 def list_by_owner(db: Database, owner_id: ObjectId) -> list[dict]:
     """P3 我的问卷列表：走 owner_active_list 索引，按创建时间倒序，只取列表字段。"""
     cursor = (db.surveys
@@ -115,14 +136,16 @@ def transition_status(db: Database, survey_id: ObjectId, owner_id: ObjectId,
 
 def save_editor_changes(db: Database, survey_id: ObjectId, owner_id: ObjectId,
                         expected_updated_at: datetime, set_fields: dict,
-                        bump_version: bool) -> dict | None:
+                        bump_version: bool, require_draft: bool = False) -> dict | None:
     """P8 编辑页保存：以读取时的 updatedAt 作为乐观锁条件整体写回题目数组。
     期间若有其他窗口修改过问卷，条件不匹配，返回 None。"""
     update = {"$set": dict(set_fields)}
     if bump_version:
         update["$inc"] = {"version": 1}
-    return update_owned(db, survey_id, owner_id, update,
-                        extra_filter={"updatedAt": expected_updated_at})
+    flt = {"updatedAt": expected_updated_at}
+    if require_draft:
+        flt["status"] = "draft"
+    return update_owned(db, survey_id, owner_id, update, extra_filter=flt)
 
 
 def find_active(db: Database, survey_id: ObjectId) -> dict | None:

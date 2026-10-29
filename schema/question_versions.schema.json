@@ -1,0 +1,48 @@
+{
+  "bsonType": "object",
+  "title": "question_versions - 第二阶段新增",
+  "required": [
+    "itemId", "versionNo", "parentVersionId", "type", "title", "description",
+    "required", "options", "constraints", "createdAt", "schemaVersion"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "itemId": { "bsonType": "objectId" },
+    "versionNo": { "bsonType": "int", "minimum": 1 },
+    "parentVersionId": { "bsonType": ["objectId", "null"] },
+    "type": { "enum": ["single", "multiple", "text", "number"] },
+    "title": { "bsonType": "string", "minLength": 1, "maxLength": 500 },
+    "description": { "bsonType": "string", "maxLength": 2000 },
+    "required": { "bsonType": "bool" },
+    "options": {
+      "bsonType": "array",
+      "items": {
+        "bsonType": "object",
+        "required": ["optionId", "text", "hidden"],
+        "additionalProperties": false,
+        "properties": {
+          "optionId": { "bsonType": "string", "minLength": 1 },
+          "text": { "bsonType": "string", "minLength": 1, "maxLength": 200 },
+          "hidden": { "bsonType": "bool" }
+        }
+      }
+    },
+    "constraints": {
+      "bsonType": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minSelect": { "bsonType": "int", "minimum": 0 },
+        "maxSelect": { "bsonType": "int", "minimum": 1 },
+        "exactSelect": { "bsonType": "int", "minimum": 1 },
+        "minLength": { "bsonType": "int", "minimum": 0 },
+        "maxLength": { "bsonType": "int", "minimum": 1 },
+        "min": { "bsonType": ["int", "long", "double", "decimal"] },
+        "max": { "bsonType": ["int", "long", "double", "decimal"] },
+        "integerOnly": { "bsonType": "bool" }
+      }
+    },
+    "createdAt": { "bsonType": "date" },
+    "schemaVersion": { "bsonType": "int", "minimum": 2 }
+  }
+}

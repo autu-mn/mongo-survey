@@ -95,14 +95,22 @@ def test_stats_with_no_responses(client, alice):
     assert body["questions"][2]["average"] is None and body["questions"][2]["values"] == []
 
 
-def test_hidden_option_and_question_keep_history(client, alice, filled):
+def test_legacy_hidden_option_and_question_keep_history(client, db, alice, filled):
     s, qs = filled
     q2 = qs["q2"]
     keep = [{"optionId": o["optionId"], "text": o["text"]} for o in q2["options"] if o["text"] != "西瓜"]
-    client.put(f"/api/surveys/{s['id']}/questions/{q2['questionId']}", headers=alice,
-               json={"type": "multiple", "title": q2["title"], "required": True, "options": keep,
-                     "constraints": {"minSelect": 2, "maxSelect": 3}})
-    client.delete(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}", headers=alice)
+    rejected = client.put(f"/api/surveys/{s['id']}/questions/{q2['questionId']}", headers=alice,
+                          json={"type": "multiple", "title": q2["title"], "required": True, "options": keep,
+                                "constraints": {"minSelect": 2, "maxSelect": 3}})
+    assert rejected.status_code == 409 and rejected.json()["code"] == "published_question_locked"
+    # 模拟第一阶段已形成的隐藏标记；第二阶段仍须正确读取旧数据。
+    from bson import ObjectId
+    doc = db.surveys.find_one({"_id": ObjectId(s["id"])})
+    for option in doc["questions"][1]["options"]:
+        if option["text"] == "西瓜":
+            option["hidden"] = True
+    doc["questions"][3]["hidden"] = True
+    db.surveys.update_one({"_id": doc["_id"]}, {"$set": {"questions": doc["questions"]}})
 
     body = client.get(f"/api/surveys/{s['id']}/stats", headers=alice).json()
     melon = next(o for o in body["questions"][1]["options"] if o["text"] == "西瓜")

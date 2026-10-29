@@ -1,0 +1,21 @@
+{
+  "bsonType": "object",
+  "title": "question_items - 第二阶段新增",
+  "required": ["ownerId", "visibility", "sharedUserIds", "createdAt", "updatedAt", "schemaVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "ownerId": { "bsonType": "objectId" },
+    "visibility": { "enum": ["private", "public", "selected"] },
+    "sharedUserIds": {
+      "bsonType": "array",
+      "uniqueItems": true,
+      "items": { "bsonType": "objectId" }
+    },
+    "originSurveyId": { "bsonType": "objectId", "description": "原问卷来源；迁移或从问卷保存题目时设置，直接新建题目不设置" },
+    "originQuestionId": { "bsonType": "string", "minLength": 1 },
+    "createdAt": { "bsonType": "date" },
+    "updatedAt": { "bsonType": "date" },
+    "schemaVersion": { "bsonType": "int", "minimum": 2 }
+  }
+}

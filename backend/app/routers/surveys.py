@@ -23,6 +23,12 @@ def get_survey(survey_id: str, user: RequiredUser, db: DB):
     return svc.to_detail(doc, svc.now_utc())
 
 
+@router.post("/{survey_id}/copy", response_model=SurveyDetail, status_code=201,
+             summary="【第二阶段新增】复制问卷为新草稿（P32）")
+def copy_survey(survey_id: str, user: RequiredUser, db: DB):
+    return svc.to_detail(svc.copy_survey(db, svc.parse_survey_id(survey_id), user.id), svc.now_utc())
+
+
 @router.delete("/{survey_id}", status_code=204, summary="删除问卷（软删除，P6）")
 def delete_survey(survey_id: str, user: RequiredUser, db: DB):
     svc.delete(db, svc.parse_survey_id(survey_id), user.id)

@@ -155,6 +155,13 @@ def submit(db: Database, slug: str, user: CurrentUser | None, body: SubmitIn) ->
     if not result.ok:
         raise AppError(422, "invalid_answer", result.errors[0]["message"], result.errors)
 
+    # 【第二阶段修改】只给本次确实回答、且问卷快照已固定来源的答案写具体版本。
+    by_question = {q["questionId"]: q for q in doc["questions"]}
+    for answer in result.answers:
+        version_id = by_question[answer["questionId"]].get("sourceVersionId")
+        if version_id is not None:
+            answer["questionVersionId"] = version_id
+
     now = now_utc()
     if not surveys_repo.reserve_slot(db, doc["_id"], now):
         latest = surveys_repo.find_by_slug(db, slug)

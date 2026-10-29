@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, Header
 from app.deps import DB, RequiredUser
 from app.errors import AppError
 from app.models.question import LogicIn, QuestionIn, ReorderIn, SurveyPatch
+from app.models.library import SaveToLibrary, VersionSelection
 from app.models.survey import SurveyDetail
 from app.services import question_service as qs
+from app.services import library_service as library
+from app.services.question_item_service import parse_id
 from app.services import survey_service as svc
 
 router = APIRouter(prefix="/api/surveys/{survey_id}", tags=["创作者：编辑页"])
@@ -43,6 +46,29 @@ def patch_survey(survey_id: str, body: SurveyPatch, user: RequiredUser, db: DB, 
 @router.post("/questions", response_model=SurveyDetail, status_code=201, summary="添加题目（追加到末尾）")
 def add_question(survey_id: str, body: QuestionIn, user: RequiredUser, db: DB, expected: Expected):
     return _out(qs.add_question(db, svc.parse_survey_id(survey_id), user.id, body, expected))
+
+
+@router.post("/questions/from-library", response_model=SurveyDetail, status_code=201,
+             summary="【第二阶段新增】选入具体题目版本（P30）")
+def from_library(survey_id: str, body: VersionSelection, user: RequiredUser, db: DB, expected: Expected):
+    return _out(library.select_version(db, svc.parse_survey_id(survey_id), user.id,
+                                       parse_id(body.version_id), expected))
+
+
+@router.put("/questions/{question_id}/from-library", response_model=SurveyDetail,
+            summary="【第二阶段新增】草稿中替换为具体版本")
+def replace_from_library(survey_id: str, question_id: str, body: VersionSelection,
+                         user: RequiredUser, db: DB, expected: Expected):
+    return _out(library.select_version(db, svc.parse_survey_id(survey_id), user.id,
+                                       parse_id(body.version_id), expected, question_id))
+
+
+@router.post("/questions/{question_id}/save-to-library", status_code=201,
+             summary="【第二阶段新增】保存现有题目及可选收录（P31）")
+def save_to_library(survey_id: str, question_id: str, body: SaveToLibrary,
+                    user: RequiredUser, db: DB, expected: Expected):
+    return library.save_question(db, svc.parse_survey_id(survey_id), user.id,
+                                 question_id, body, expected)
 
 
 @router.put("/questions/order", response_model=SurveyDetail, summary="调整题目顺序")

@@ -18,6 +18,7 @@
   const id = pathParam(1);
   const msg = document.getElementById("msg");
   let allQuestions = [];
+  let sourceByQuestion = {}; // 【第二阶段新增】从单卷统计跳到对应题目的同版统计
 
   async function exportCsv() {
     // 导出接口需要登录凭证，不能直接用链接下载，先取回文件再触发保存
@@ -52,6 +53,8 @@
         h("span", { class: "tag", style: "margin:0" }, TYPE_TEXT[q.type]),
         q.hidden ? h("span", { class: "badge hidden" }, "已删除") : null),
       h("p", { class: "muted" }, `${q.answeredCount} 人作答${skippedNote}`),
+      sourceByQuestion[q.questionId]?.sourceItemId ? h("p", {},
+        h("a", { href: `/questions/${sourceByQuestion[q.questionId].sourceItemId}` }, "查看题目版本与同版跨卷统计")) : null,
       q.options ? choiceTable(q) : null,
       q.type === "number" ? (q.average === null ? h("p", { class: "muted" }, "还没有人作答。") :
         h("div", { class: "figures" },
@@ -67,6 +70,10 @@
 
   async function load(questionId) {
     try {
+      if (!Object.keys(sourceByQuestion).length) {
+        const detail = await creatorCall("GET", `/api/surveys/${id}`);
+        sourceByQuestion = Object.fromEntries(detail.questions.map((q) => [q.questionId, q]));
+      }
       const path = questionId ? `/api/surveys/${id}/stats/${questionId}` : `/api/surveys/${id}/stats`;
       const data = await creatorCall("GET", path);
       if (!questionId) allQuestions = data.questions;

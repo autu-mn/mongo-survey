@@ -1,0 +1,19 @@
+{
+  "bsonType": "object",
+  "title": "question_banks - 第二阶段新增",
+  "required": ["ownerId", "name", "itemIds", "createdAt", "updatedAt", "schemaVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "_id": { "bsonType": "objectId" },
+    "ownerId": { "bsonType": "objectId" },
+    "name": { "bsonType": "string", "minLength": 1, "maxLength": 100 },
+    "itemIds": {
+      "bsonType": "array",
+      "uniqueItems": true,
+      "items": { "bsonType": "objectId" }
+    },
+    "createdAt": { "bsonType": "date" },
+    "updatedAt": { "bsonType": "date" },
+    "schemaVersion": { "bsonType": "int", "minimum": 2 }
+  }
+}

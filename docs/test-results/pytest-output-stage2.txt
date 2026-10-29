@@ -1,0 +1,66 @@
+第二阶段最终自动测试记录
+执行日期：2026-10-28
+执行目录：backend
+命令：.venv\Scripts\python -m pytest -q --cov=app --cov-report=term-missing --tb=short
+测试数据库：survey_system_test（独立于正式库）
+
+进度：
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 80%]
+....................................................                     [100%]
+
+覆盖率输出：
+Name                                    Stmts   Miss  Cover
+app/__init__.py                             0      0   100%
+app/config.py                              11      0   100%
+app/db.py                                  40      2    95%
+app/deps.py                                41      0   100%
+app/errors.py                              17      0   100%
+app/main.py                                36      1    97%
+app/models/auth.py                         21      0   100%
+app/models/common.py                        4      0   100%
+app/models/library.py                       6      0   100%
+app/models/me.py                           38      0   100%
+app/models/public.py                       49      0   100%
+app/models/question.py                     40      0   100%
+app/models/question_bank.py                 4      0   100%
+app/models/question_item.py                27      2    93%
+app/models/stats.py                        26      0   100%
+app/models/survey.py                       47      0   100%
+app/repositories/cross_stats.py             8      0   100%
+app/repositories/drafts.py                 27      4    85%
+app/repositories/question_banks.py         22      0   100%
+app/repositories/question_items.py         28      1    96%
+app/repositories/question_versions.py      19      0   100%
+app/repositories/responses.py              19      0   100%
+app/repositories/surveys.py                88      6    93%
+app/repositories/users.py                  14      0   100%
+app/routers/auth.py                        27      0   100%
+app/routers/me.py                          11      0   100%
+app/routers/public.py                      26      0   100%
+app/routers/question_banks.py              28      0   100%
+app/routers/question_items.py              38      2    95%
+app/routers/questions.py                   56      3    95%
+app/routers/stats.py                       19      0   100%
+app/routers/surveys.py                     42      0   100%
+app/security.py                            29      0   100%
+app/services/answer_validator.py           71      1    99%
+app/services/cross_stats_service.py        35      3    91%
+app/services/export_service.py             59      0   100%
+app/services/fill_service.py              121      4    97%
+app/services/library_service.py           106     25    76%
+app/services/logic_engine.py               93      2    98%
+app/services/me_service.py                 44      1    98%
+app/services/question_bank_service.py      53      6    89%
+app/services/question_item_service.py      97      6    94%
+app/services/question_service.py          128      6    95%
+app/services/rule_checker.py              103      2    98%
+app/services/stats_service.py              30      0   100%
+app/services/survey_service.py            106      3    97%
+TOTAL                                    1954     80    96%
+
+最终结果：
+268 passed in 169.07s (0:02:49)
+
+说明：第一次权限请求中断后残留 pytest 进程与第二个进程竞争同一测试库，产生环境性失败；进程全部结束后单进程重跑得到上述最终结果。详细原因记录在 docs/测试用例.md 第 16 节和 AI 使用日志 #25。

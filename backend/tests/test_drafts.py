@@ -103,16 +103,19 @@ def test_next_without_entry_still_creates_draft(client, db, alice, bob):
 
 # ---------- 进度作废、重新开始、提交后删除 ----------
 
-def test_draft_discarded_when_survey_changed(client, db, alice, bob):
+def test_draft_preserved_when_published_survey_rejects_change(client, db, alice, bob):
     s, qs = build_demo_survey(client, alice)
     entry(client, s["slug"], bob)
     nxt(client, s["slug"], bob, qs["q1"]["questionId"], opt(qs["q1"], "女"))
-    client.put(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}/logic", headers=alice, json={"rules": []})
-    client.post(f"/api/surveys/{s['id']}/questions", headers=alice,
-                json={"type": "text", "title": "新增的题"})         # version + 1
+    edit = client.put(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}/logic", headers=alice,
+                      json={"rules": []})
+    add = client.post(f"/api/surveys/{s['id']}/questions", headers=alice,
+                      json={"type": "text", "title": "新增的题"})
+    assert edit.status_code == add.status_code == 409
+    assert edit.json()["code"] == add.json()["code"] == "published_question_locked"
     body = entry(client, s["slug"], bob)
-    assert body["draftDiscarded"] is True
-    assert body["draft"]["path"] == [qs["q1"]["questionId"]] and body["draft"]["answers"] == {}
+    assert body["draftDiscarded"] is False
+    assert body["draft"]["answers"][qs["q1"]["questionId"]] == opt(qs["q1"], "女")
 
 
 def test_restart_deletes_draft(client, db, alice, bob):

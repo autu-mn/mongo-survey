@@ -71,6 +71,14 @@
             "minLength": 1,
             "description": "稳定 ID，跳转规则和答卷都引用它，不依赖题号"
           },
+          "sourceItemId": {
+            "bsonType": "objectId",
+            "description": "【第二阶段新增】题目身份；旧数据允许缺失"
+          },
+          "sourceVersionId": {
+            "bsonType": "objectId",
+            "description": "【第二阶段新增】选入本问卷的不可变题目版本；旧数据允许缺失"
+          },
           "order": { "bsonType": "int", "minimum": 1 },
           "type": { "enum": ["single", "multiple", "text", "number"] },
           "title": { "bsonType": "string", "minLength": 1, "maxLength": 500 },

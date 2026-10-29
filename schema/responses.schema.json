@@ -32,6 +32,10 @@
         "additionalProperties": false,
         "properties": {
           "questionId": { "bsonType": "string", "minLength": 1 },
+          "questionVersionId": {
+            "bsonType": "objectId",
+            "description": "【第二阶段新增】可核实来源的新答案所属题目版本；旧答案允许缺失"
+          },
           "type": { "enum": ["single", "multiple", "text", "number"] },
           "value": {
             "bsonType": ["string", "array", "int", "long", "double", "decimal"],

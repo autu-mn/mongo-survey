@@ -125,6 +125,19 @@ td.num { text-align: right; }
 .badge.closed, .badge.hidden { color: var(--print); }
 .tag { display: inline-block; padding: 2px 10px; margin: 0 6px 6px 0; font-size: var(--fs-0); background: #f1f3f5; border-radius: 3px; }
 
+/* 【第二阶段新增】题库、版本树、选题面板 */
+.library-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.library-tile { display: flex; flex-direction: column; gap: 5px; padding: 16px; border: 1px solid var(--rule);
+  border-left: 3px solid var(--print); border-radius: 3px; color: var(--graphite); }
+.library-tile:hover { background: #fafbfc; text-decoration: none; }
+.library-row, .version-row { padding: 14px 0; border-bottom: 1px solid var(--rule); }
+.library-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.version-row:last-child, .library-row:last-child { border-bottom: 0; }
+.version-preview { margin: 10px 0; padding: 14px 16px; background: #f8f9fb; border: 1px solid var(--rule); border-radius: 3px; }
+.version-preview ol { margin: 8px 0 0; padding-left: 25px; }
+.picker-card { border-top: 3px solid var(--ink); background: #f8faff; }
+.picker-card select { max-width: 100%; }
+
 .muted { color: var(--graphite-2); }
 .error { color: var(--print); }
 
@@ -278,7 +291,7 @@ main.auth { max-width: 420px; margin-top: 9vh; }
 }
 
 @media (max-width: 640px) {
-  header.nav { padding: 0 16px; gap: 14px; }
+  header.nav { padding: 10px 16px; gap: 8px 14px; height: auto; min-height: 56px; flex-wrap: wrap; }
   main { margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
   .card { padding: 22px 18px; }
   .answer-sheet { grid-template-columns: 30px 1fr; }

@@ -9,9 +9,10 @@ from app.config import settings
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schema"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 【第二阶段修改】新增题目来源引用，仍兼容 schemaVersion=1 的旧文档
 
-COLLECTIONS = ("users", "surveys", "responses", "drafts")
+COLLECTIONS = ("users", "surveys", "responses", "drafts",
+               "question_items", "question_versions", "question_banks")
 
 INDEXES: dict[str, list[IndexModel]] = {
     "users": [
@@ -22,6 +23,11 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel(
             [("ownerId", ASCENDING), ("deletedAt", ASCENDING), ("createdAt", DESCENDING)],
             name="owner_active_list",
+        ),
+        IndexModel(
+            [("questions.sourceItemId", ASCENDING), ("ownerId", ASCENDING),
+             ("deletedAt", ASCENDING)],
+            name="question_usage",
         ),
     ],
     "responses": [
@@ -36,12 +42,37 @@ INDEXES: dict[str, list[IndexModel]] = {
             name="uniq_single_submission",
         ),
         IndexModel([("respondentId", ASCENDING), ("submittedAt", DESCENDING)], name="respondent_history"),
+        IndexModel(
+            [("answers.questionVersionId", ASCENDING), ("surveyId", ASCENDING)],
+            name="version_survey_answers",
+        ),
     ],
     "drafts": [
         IndexModel([("userId", ASCENDING), ("surveyId", ASCENDING)], unique=True, name="uniq_user_survey"),
         IndexModel([("userId", ASCENDING), ("lastVisitedAt", DESCENDING)], name="user_recent"),
         IndexModel([("lastVisitedAt", ASCENDING)], name="ttl_last_visited",
                    expireAfterSeconds=settings.draft_ttl_days * 86400),
+    ],
+    # 【第二阶段新增】题目身份、不可变版本和个人命名题库。
+    "question_items": [
+        IndexModel([("ownerId", ASCENDING), ("createdAt", DESCENDING)], name="owner_items"),
+        IndexModel([("visibility", ASCENDING), ("createdAt", DESCENDING)], name="public_items"),
+        IndexModel([("sharedUserIds", ASCENDING), ("createdAt", DESCENDING)], name="shared_items"),
+        IndexModel(
+            [("originSurveyId", ASCENDING), ("originQuestionId", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"originSurveyId": {"$exists": True},
+                                     "originQuestionId": {"$exists": True}},
+            name="uniq_legacy_origin",
+        ),
+    ],
+    "question_versions": [
+        IndexModel([("itemId", ASCENDING), ("versionNo", DESCENDING)],
+                   unique=True, name="uniq_item_version"),
+    ],
+    "question_banks": [
+        IndexModel([("ownerId", ASCENDING), ("name", ASCENDING)],
+                   unique=True, name="uniq_owner_bank_name"),
     ],
 }
 

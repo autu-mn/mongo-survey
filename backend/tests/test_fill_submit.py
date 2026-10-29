@@ -66,11 +66,12 @@ def test_entry_login_required_hides_questions(client, alice):
 
 def test_entry_ok_returns_public_questions(client, alice, bob, db):
     s, qs = build_demo_survey(client, alice)
-    client.delete(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}", headers=alice)
+    rejected = client.delete(f"/api/surveys/{s['id']}/questions/{qs['q4']['questionId']}", headers=alice)
+    assert rejected.status_code == 409 and rejected.json()["code"] == "published_question_locked"
     body = entry(client, s["slug"], bob).json()
     assert body["state"] == "ok"
     questions = body["survey"]["questions"]
-    assert [q["number"] for q in questions] == [1, 2, 3]          # 隐藏的 Q4 不出现
+    assert [q["number"] for q in questions] == [1, 2, 3, 4]  # 发布后内容保持不变
     assert all("logic" not in q and "hidden" not in q for q in questions)
     assert body["survey"]["firstQuestionId"] == qs["q1"]["questionId"]
 

@@ -63,6 +63,14 @@ def to_list_item(doc: dict, now: datetime) -> SurveyListItem:
 
 def to_detail(doc: dict, now: datetime) -> SurveyDetail:
     base = to_list_item(doc, now).model_dump()
+    # 【第二阶段修改】来源 ID 在库中为 ObjectId，API 输出为字符串。
+    questions = []
+    for question in doc["questions"]:
+        out = dict(question)
+        for key in ("sourceItemId", "sourceVersionId"):
+            if out.get(key) is not None:
+                out[key] = str(out[key])
+        questions.append(out)
     return SurveyDetail(
         **base,
         description=doc["description"],
@@ -71,7 +79,7 @@ def to_detail(doc: dict, now: datetime) -> SurveyDetail:
         question_count=sum(1 for q in doc["questions"] if not q["hidden"]),
         published_at=doc.get("publishedAt"),
         closed_at=doc.get("closedAt"),
-        questions=doc["questions"],
+        questions=questions,
     )
 
 
@@ -120,12 +128,29 @@ def _explain_open_failure(doc: dict, expected_status: str, now: datetime) -> App
 
 def publish(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> dict:
     now = now_utc()
+    # 【第二阶段修改】发布前给未关联题目固定来源，发布和快照写入同一次原子状态流转。
+    current = get_owned(db, survey_id, owner_id)
+    if current["status"] != "draft" or not any(not q["hidden"] for q in current["questions"]) or deadline_passed(current["settings"], now):
+        raise _explain_open_failure(current, "draft", now)
+    from app.services.library_service import ensure_source
+    import copy
+
+    questions = copy.deepcopy(current["questions"])
+    for q in questions:
+        item_id, version_id = ensure_source(db, survey_id, owner_id, q)
+        q["sourceItemId"] = item_id
+        q["sourceVersionId"] = version_id
     doc = repo.transition_status(db, survey_id, owner_id, ["draft"], "published",
-                                 extra_filter=_open_filter(now),
-                                 extra_set={"publishedAt": now})
+                                 extra_filter={**_open_filter(now), "updatedAt": current["updatedAt"]},
+                                 extra_set={"publishedAt": now, "questions": questions})
     if doc is None:
         raise _explain_open_failure(get_owned(db, survey_id, owner_id), "draft", now)
     return doc
+
+
+def copy_survey(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> dict:
+    source = get_owned(db, survey_id, owner_id)
+    return repo.copy_as_draft(db, source)
 
 
 def reopen(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> dict:
